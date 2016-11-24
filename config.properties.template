@@ -1,0 +1,2 @@
+corpus.dir=<path to the directory containing android apps source code>
+result.file=<path to output csv file>
