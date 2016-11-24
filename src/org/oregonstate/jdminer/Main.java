@@ -1,6 +1,4 @@
-package org.oregonstate.dcminer;
-
-import org.apache.commons.io.FileUtils;
+package org.oregonstate.jdminer;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -18,19 +16,17 @@ public class Main {
     private static final File CONFIG_FILE = new File("config.properties");
     private static final Path PERMISSION_FILE = Paths.get("PermissionList.txt");
 
-    private static String corpusDir;
-    static File resultFile;
+    private static File androidSrcDir;
+    static File outFile;
     static List<String> permissions, methodPermissions, uriPermissions, mixedPermissions, storagePermissions;
 
-    private static void loadConfig() {
+    private static void loadConfig() throws IOException {
         Properties prop = new Properties();
         try (InputStream stream = new FileInputStream(CONFIG_FILE)) {
             prop.load(stream);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
-        corpusDir = prop.getProperty("corpus.dir");
-        resultFile = new File(prop.getProperty("result.file"));
+        androidSrcDir = new File(prop.getProperty("android.src.dir"));
+        outFile = new File(prop.getProperty("out.file"));
     }
 
     private static void loadPermissions() {
@@ -69,26 +65,11 @@ public class Main {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         long startTime = System.currentTimeMillis();
         loadConfig();
         loadPermissions();
-        File[] files = new File(corpusDir).listFiles();
-        if (files == null) {
-            throw new RuntimeException("Error: " + corpusDir + " is not a directory");
-        }
-
-        try {
-            FileUtils.writeStringToFile(resultFile, App.header(), false);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        for (File file : files) {
-            if (file.isDirectory()) {
-                new App(file).analyze();
-            }
-        }
+        Miner.analyze(androidSrcDir);
 
         long elapsedTime = System.currentTimeMillis() - startTime;
         Date date = new Date(elapsedTime);
