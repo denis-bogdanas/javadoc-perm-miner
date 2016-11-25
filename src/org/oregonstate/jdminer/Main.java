@@ -16,7 +16,7 @@ public class Main {
     private static final File CONFIG_FILE = new File("config.properties");
     private static final Path PERMISSION_FILE = Paths.get("PermissionList.txt");
 
-    private static File androidSrcDir;
+    static File androidSrcDir;
     static File outFile;
     static List<String> permissions, methodPermissions, uriPermissions, mixedPermissions, storagePermissions;
 
