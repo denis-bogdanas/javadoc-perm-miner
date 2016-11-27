@@ -1,41 +1,33 @@
 package edu.oregonstate.jdminer.inspect;
 
 import com.intellij.analysis.AnalysisScope;
-import com.intellij.codeInspection.*;
-import com.intellij.codeInspection.reference.RefEntity;
-import com.intellij.codeInspection.reference.RefMethod;
+import com.intellij.codeInspection.GlobalInspectionContext;
+import com.intellij.codeInspection.GlobalInspectionTool;
+import com.intellij.codeInspection.InspectionManager;
+import com.intellij.codeInspection.ProblemDescriptionsProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifierListOwner;
-import com.intellij.psi.PsiStatement;
-import edu.oregonstate.jdminer.inspect.jaxb.JaxbCallback;
-import edu.oregonstate.jdminer.inspect.jaxb.JaxbLoadUtil;
-import edu.oregonstate.jdminer.inspect.jaxb.JaxbStmt;
+import com.intellij.psi.*;
+import com.intellij.psi.impl.source.javadoc.PsiDocMethodOrFieldRef;
+import com.intellij.psi.javadoc.PsiDocComment;
+import com.intellij.psi.javadoc.PsiDocTag;
+import com.intellij.psi.javadoc.PsiDocToken;
+import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.search.ProjectScope;
+import com.intellij.psi.search.PsiSearchHelper;
+import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import javax.xml.bind.JAXBException;
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 public class PermissionGuardInspection extends GlobalInspectionTool {
 
     private static final Logger LOG = Logger.getInstance(PermissionGuardInspection.class);
 
-    private static final String ALERT_MESSAGE = "Permission guard required for: ";
-
-    private List<JaxbCallback> droidPermData;
-
     @Override
     public boolean isGraphNeeded() {
-        //todo - test if works with false.
-        // We don't need references to be resolved,
-        // but It's not clear whether value false will produce the same sequence of analyzed elements.
         return true;
     }
 
@@ -43,91 +35,43 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
     public void runInspection(@NotNull AnalysisScope scope, @NotNull InspectionManager manager,
                               @NotNull GlobalInspectionContext globalContext,
                               @NotNull ProblemDescriptionsProcessor problemDescriptionsProcessor) {
+        Module module = null;
         try {
-            //todo support for scope containing multiple modules
-            Module module = IntellijUtil.getModule(scope, globalContext.getProject());
-            if (module == null) {
-                LOG.warn("Analysis scope does not contain a module.");
-                return;
-            }
-            LOG.info("inspecting module " + module.getName());
-            runDroidPerm(module);
+            module = IntellijUtil.getModule(scope, globalContext.getProject());
         } catch (DroidPermException e) {
             LOG.error(e);
         }
-
-        super.runInspection(scope, manager, globalContext, problemDescriptionsProcessor);
-    }
-
-    private void runDroidPerm(Module module) {
-        try {
-            File xmlFile = DroidPermRunner.run(module);
-            droidPermData = JaxbLoadUtil.load(xmlFile);
-            LOG.info("DroidPerm executed successfully");
-        } catch (DroidPermException e) {
-            LOG.error(e);
-        } catch (JAXBException e) {
-            LOG.error("JaxbLoadUtil unable to load XML file", e);
-        } catch (Exception e) {
-            LOG.error("Exception while running DroidPerm", e);
+        if (module == null) {
+            LOG.warn("Analysis scope does not contain a module.");
+            return;
         }
-    }
-
-    @Nullable
-    @Override
-    public CommonProblemDescriptor[] checkElement(@NotNull RefEntity refEntity, @NotNull AnalysisScope scope,
-                                                  @NotNull InspectionManager manager,
-                                                  @NotNull GlobalInspectionContext globalContext) {
-        //todo log an error if not all JaxbCallback objects produced by a DroidPerm execution were detected
-        // by this analysis
-        if (refEntity instanceof RefMethod) {
-            RefMethod refMethod = (RefMethod) refEntity;
-            JaxbCallback callback = DroidPermDataUtil.getCallbackFor(refMethod, droidPermData);
-
-            if (callback != null) {
-                PsiModifierListOwner methodElement = refMethod.getElement();
-                if (methodElement instanceof PsiMethod) {
-                    PsiMethod psiMethod = (PsiMethod) methodElement;
-                    return checkCallbackWithEntries(psiMethod, callback, manager);
-                } else {
-                    LOG.error("RefMethod for " + callback + " not resolved to PsiMethod");
-                }
+        LOG.info("inspecting module " + module.getName());
+        PsiSearchHelper searchHelper = PsiSearchHelper.SERVICE.getInstance(globalContext.getProject());
+        GlobalSearchScope libScope = ProjectScope.getLibrariesScope(globalContext.getProject());
+        PsiElement[] commentsWithLocation =
+                searchHelper.findCommentsContainingIdentifier("ACCESS_COARSE_LOCATION", libScope);
+        System.out.println("\nUsages in comments for ACCESS_COARSE_LOCATION:");
+        System.out.println("==============================================");
+        Arrays.stream(commentsWithLocation).forEach(comment -> {
+            PsiElement parent = comment;
+            while (parent instanceof PsiDocToken || parent instanceof PsiDocTag || parent instanceof PsiDocComment
+                    || parent instanceof PsiDocMethodOrFieldRef) {
+                parent = parent.getParent();
             }
-        }
-        return null;
-    }
-
-    private CommonProblemDescriptor[] checkCallbackWithEntries(PsiMethod psiMethod, JaxbCallback callback,
-                                                               InspectionManager manager) {
-        List<CommonProblemDescriptor> result = new ArrayList<>();
-        //todo now only top-level statements are supported.
-        @SuppressWarnings("ConstantConditions")
-        PsiStatement[] psiStmts = psiMethod.getBody().getStatements();
-        int psiStmtIndex = 0;
-
-        for (JaxbStmt jaxbStmt : callback.getStmts()) {
-            if (jaxbStmt.allGuarded()) {
-                continue;
-            }
-
-            int line = jaxbStmt.getLine();
-            TextRange dpLineRange = lineToTextRange(line, psiMethod);
-            while (psiStmtIndex < psiStmts.length && !psiStmts[psiStmtIndex].getTextRange().intersects(dpLineRange)) {
-                psiStmtIndex++;
-            }
-            if (psiStmtIndex == psiStmts.length) {
-                LOG.error("PSI code not found for: " + jaxbStmt);
+            PsiClass parentClass = PsiTreeUtil.getParentOfType(parent, PsiClass.class);
+            String prefix = (parentClass != null ? parentClass.getName() : null) + ": "
+                    + parent.getClass().getSimpleName() + ": ";
+            if (parent instanceof PsiNameIdentifierOwner) {
+                PsiNameIdentifierOwner nameOwner = (PsiNameIdentifierOwner) parent;
+                String outText = prefix
+                        + (nameOwner.getNameIdentifier() != null ? nameOwner.getNameIdentifier().getText()
+                                                                 : nameOwner.getText());
+                System.out.println(outText);
             } else {
-                PsiStatement psiStatement = psiStmts[psiStmtIndex];
-                //todo restrict warning range to the method call specified in JaxbStmt, not the whole stmt.
-                result.add(manager.createProblemDescriptor(
-                        psiStatement, ALERT_MESSAGE + jaxbStmt.getUncheckedPermissions(), true,
-                        ProblemHighlightType.GENERIC_ERROR_OR_WARNING, false,
-                        new PermissionGuardQuickFix(psiStatement, jaxbStmt)));
+                System.out.println(prefix + parent.getText());
             }
-        }
-
-        return result.toArray(new CommonProblemDescriptor[0]);
+        });
+        System.out.println();
     }
 
     private TextRange lineToTextRange(int droidPermLine, PsiMethod psiMethod) {
