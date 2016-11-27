@@ -10,17 +10,19 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
-import com.intellij.psi.impl.source.javadoc.PsiDocMethodOrFieldRef;
+import com.intellij.psi.impl.cache.CacheManager;
 import com.intellij.psi.javadoc.PsiDocComment;
-import com.intellij.psi.javadoc.PsiDocTag;
-import com.intellij.psi.javadoc.PsiDocToken;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
-import com.intellij.psi.search.PsiSearchHelper;
+import com.intellij.psi.search.UsageSearchContext;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class PermissionGuardInspection extends GlobalInspectionTool {
 
@@ -28,7 +30,7 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
 
     @Override
     public boolean isGraphNeeded() {
-        return true;
+        return false;
     }
 
     @Override
@@ -46,32 +48,62 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
             return;
         }
         LOG.info("inspecting module " + module.getName());
-        PsiSearchHelper searchHelper = PsiSearchHelper.SERVICE.getInstance(globalContext.getProject());
         GlobalSearchScope libScope = ProjectScope.getLibrariesScope(globalContext.getProject());
-        PsiElement[] commentsWithLocation =
-                searchHelper.findCommentsContainingIdentifier("ACCESS_COARSE_LOCATION", libScope);
-        System.out.println("\nUsages in comments for ACCESS_COARSE_LOCATION:");
+        final String perm = "ACCESS_COARSE_LOCATION";
+        //todo only Java files
+        PsiFile[] filesWithLoc = CacheManager.SERVICE.getInstance(globalContext.getProject())
+                .getFilesWithWord(perm, UsageSearchContext.IN_COMMENTS, libScope, true);
+        processFilesWithLocation(filesWithLoc, perm);
+    }
+
+    private void processFilesWithLocation(PsiFile[] filesWithLoc, String perm) {
+        System.out.println("\nClasses containing " + perm + " in comments: " + filesWithLoc.length);
+        int totalOccurrences = Arrays.stream(filesWithLoc)
+                .mapToInt(elem -> occurrencesInType(elem, perm, PsiComment.class)).sum();
+        int javadocOccurrences = Arrays.stream(filesWithLoc)
+                .mapToInt(elem -> occurrencesInType(elem, perm, PsiDocComment.class)).sum();
+        System.out.println(
+                "Total occurrences in \n\tall comments: " + totalOccurrences + "\n\tjavadoc: " + javadocOccurrences);
         System.out.println("==============================================");
-        Arrays.stream(commentsWithLocation).forEach(comment -> {
-            PsiElement parent = comment;
-            while (parent instanceof PsiDocToken || parent instanceof PsiDocTag || parent instanceof PsiDocComment
-                    || parent instanceof PsiDocMethodOrFieldRef) {
-                parent = parent.getParent();
-            }
-            PsiClass parentClass = PsiTreeUtil.getParentOfType(parent, PsiClass.class);
-            String prefix = (parentClass != null ? parentClass.getName() : null) + ": "
-                    + parent.getClass().getSimpleName() + ": ";
-            if (parent instanceof PsiNameIdentifierOwner) {
-                PsiNameIdentifierOwner nameOwner = (PsiNameIdentifierOwner) parent;
-                String outText = prefix
-                        + (nameOwner.getNameIdentifier() != null ? nameOwner.getNameIdentifier().getText()
-                                                                 : nameOwner.getText());
-                System.out.println(outText);
-            } else {
-                System.out.println(prefix + parent.getText());
-            }
-        });
+        //noinspection unchecked
+        Arrays.stream(filesWithLoc).flatMap(file -> PsiTreeUtil.getChildrenOfAnyType(file, PsiClass.class).stream())
+                .forEach(psiClass -> {
+                    System.out.println(psiClass.getQualifiedName()
+                            + ", com:" + occurrencesInType(psiClass, perm, PsiComment.class)
+                            + ", javadoc:" + occurrencesInType(psiClass, perm, PsiDocComment.class));
+                    Collection<PsiDocCommentOwner> childCommentOwners =
+                            PsiTreeUtil.findChildrenOfType(psiClass, PsiDocCommentOwner.class);
+                    List<PsiDocCommentOwner> commentOwners = new ArrayList<>(childCommentOwners.size() + 1);
+                    commentOwners.add(psiClass);
+                    commentOwners.addAll(childCommentOwners);
+
+                    List<PsiDocCommentOwner> locCommentOwners = commentOwners.stream().filter(comOwner ->
+                            comOwner.getDocComment() != null
+                                    && comOwner.getDocComment().getText().contains(perm)
+                    ).collect(Collectors.toList());
+                    for (PsiDocCommentOwner elem : locCommentOwners) {
+                        //noinspection ConstantConditions
+                        System.out.println("\t" + elem.getNode().getElementType() + ": " + elem.getName()
+                                + ": " + occurrences(elem.getDocComment().getText(), perm));
+                    }
+                });
         System.out.println();
+    }
+
+    private static int occurrences(String str, String substr) {
+        int occurrences = 0;
+        int index = str.indexOf(substr);
+        while (index != -1) {
+            occurrences++;
+            index = str.indexOf(substr, index + 1);
+        }
+        return occurrences;
+    }
+
+    private static int occurrencesInType(PsiElement elem, String str, Class<? extends PsiElement> psiClass) {
+        //noinspection unchecked
+        return PsiTreeUtil.findChildrenOfAnyType(elem, psiClass).stream()
+                .mapToInt(comm -> occurrences(comm.getText(), str)).sum();
     }
 
     private TextRange lineToTextRange(int droidPermLine, PsiMethod psiMethod) {

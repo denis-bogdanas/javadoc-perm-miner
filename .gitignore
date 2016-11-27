@@ -1,4 +1,5 @@
 out/
+temp/
 config.properties
 
 # IntelliJ project files
