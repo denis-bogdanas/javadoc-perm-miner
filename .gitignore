@@ -1,4 +1,7 @@
+out/
 config.properties
-/out
-/miner-out
+
+# IntelliJ project files
+.idea/workspace.xml
+.idea/misc.xml
 

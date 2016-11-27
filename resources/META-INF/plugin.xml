@@ -1,0 +1,49 @@
+<!--suppress XmlUnboundNsPrefix -->
+<idea-plugin version="2">
+  <id>javadoc-perm-miner</id>
+  <name>javadoc-perm-miner</name>
+  <version>1.1</version>
+
+  <!--I guess it was more of a teamwork.-->
+  <!--<vendor email="nelsonni@oregonstate.edu" url="http://people.oregonstate.edu/~nelsonni/">Nicholas Nelson</vendor>-->
+
+  <description><![CDATA[
+      Mining of permission mappings from Android SDK javadoc comments. To be used from an Android project.
+    ]]></description>
+
+  <change-notes><![CDATA[
+      Add change notes here.<br>
+      <em>most HTML tags may be used</em>
+    ]]>
+  </change-notes>
+
+  <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
+  <idea-version since-build="141.0"/>
+
+  <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+       on how to target different products -->
+  <!-- uncomment to enable plugin in all products
+  <depends>com.intellij.modules.lang</depends>
+  -->
+
+  <depends>com.intellij.modules.lang</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!--<applicationService serviceInterface="edu.oregonstate.jdminer.settings.PersistentSettings"
+                        serviceImplementation="edu.oregonstate.jdminer.settings.PersistentSettings"/>
+    <applicationConfigurable instance="edu.oregonstate.jdminer.settings.SettingsConfigurable"/>-->
+
+    <globalInspection implementationClass="edu.oregonstate.jdminer.inspect.PermissionGuardInspection"
+                      groupBundle="messages.InspectionsBundle"
+                      groupPath="Android" groupName="DroidPerm"
+                      displayName="Javadoc Permissions Miner"
+                      language="JAVA" enabledByDefault="true" level="WARNING"/>
+  </extensions>
+
+  <application-components>
+    <!-- application components go here -->
+  </application-components>
+
+  <actions></actions>
+
+</idea-plugin>
