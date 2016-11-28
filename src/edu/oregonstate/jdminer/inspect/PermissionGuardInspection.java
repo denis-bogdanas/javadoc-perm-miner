@@ -22,12 +22,14 @@ import org.oregonstate.droidperm.perm.miner.XmlPermDefMiner;
 import org.oregonstate.droidperm.perm.miner.jaxb_out.*;
 
 import javax.xml.bind.JAXBException;
+import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class PermissionGuardInspection extends GlobalInspectionTool {
 
     private static final Logger LOG = Logger.getInstance(PermissionGuardInspection.class);
+    private static final File XML_OUT = new File("d:/DroidPerm/javadoc-perm-miner/temp/javadoc-xml-out.xml");
 
     @Override
     public boolean isGraphNeeded() {
@@ -54,9 +56,9 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
         PsiFile[] filesWithPerm = CacheManager.SERVICE.getInstance(globalContext.getProject())
                 .getFilesWithWord(perm, UsageSearchContext.IN_COMMENTS, libScope, true);
         List<PsiDocCommentOwner> docCommentOwners = buildDocCommentOwners(filesWithPerm, perm);
-        //todo pass fully qualified location
+        //todo pass fully qualified permission string
         List<PermissionDef> permissionDefs = buildPermissionDefs(docCommentOwners, perm);
-        printPermissionDefs(permissionDefs);
+        savePermissionDefs(permissionDefs);
     }
 
     private List<PsiDocCommentOwner> buildDocCommentOwners(PsiFile[] filesWithPerm, String perm) {
@@ -82,11 +84,11 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
                     commentOwners.add(psiClass);
                     commentOwners.addAll(childCommentOwners);
 
-                    List<PsiDocCommentOwner> locCommentOwners = commentOwners.stream().filter(comOwner ->
+                    List<PsiDocCommentOwner> permCommentOwners = commentOwners.stream().filter(comOwner ->
                             comOwner.getDocComment() != null
                                     && comOwner.getDocComment().getText().contains(perm)
                     ).collect(Collectors.toList());
-                    for (PsiDocCommentOwner elem : locCommentOwners) {
+                    for (PsiDocCommentOwner elem : permCommentOwners) {
                         //noinspection ConstantConditions
                         int occurrences = occurrences(elem.getDocComment().getText(), perm);
                         System.out.println("\t" + elem.getNode().getElementType() + ": " + elem.getName()
@@ -146,11 +148,9 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
         return permDef;
     }
 
-    private void printPermissionDefs(List<PermissionDef> permissionDefs) {
-        System.out.println("\nPermission definitions dump");
-        System.out.println("==============================================");
+    private void savePermissionDefs(List<PermissionDef> permissionDefs) {
         try {
-            JaxbUtil.print(new PermissionDefList(permissionDefs), PermissionDefList.class);
+            JaxbUtil.save(new PermissionDefList(permissionDefs), PermissionDefList.class, XML_OUT);
         } catch (JAXBException e) {
             throw new RuntimeException(e);
         }
