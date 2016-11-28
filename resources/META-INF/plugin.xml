@@ -44,6 +44,4 @@
     <!-- application components go here -->
   </application-components>
 
-  <actions></actions>
-
 </idea-plugin>
