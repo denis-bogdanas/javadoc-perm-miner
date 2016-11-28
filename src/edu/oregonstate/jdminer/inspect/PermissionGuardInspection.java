@@ -6,6 +6,7 @@ import com.intellij.codeInspection.GlobalInspectionTool;
 import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.ProblemDescriptionsProcessor;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.cache.CacheManager;
 import com.intellij.psi.javadoc.PsiDocComment;
@@ -37,22 +38,29 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
     public void runInspection(@NotNull AnalysisScope scope, @NotNull InspectionManager manager,
                               @NotNull GlobalInspectionContext globalContext,
                               @NotNull ProblemDescriptionsProcessor problemDescriptionsProcessor) {
-        GlobalSearchScope libScope = ProjectScope.getLibrariesScope(globalContext.getProject());
-        final String perm = "ACCESS_COARSE_LOCATION";
-        PsiFile[] filesWithPerm = CacheManager.SERVICE.getInstance(globalContext.getProject())
-                .getFilesWithWord(perm, UsageSearchContext.IN_COMMENTS, libScope, true);
-        List<PsiDocCommentOwner> docCommentOwners = buildDocCommentOwners(filesWithPerm, perm);
-        //todo pass fully qualified permission string
-        List<PermissionDef> permissionDefs = buildPermissionDefs(docCommentOwners, perm);
+        Map<String, List<PsiDocCommentOwner>> permToCommentOwnersMap =
+                buildDocCommentOwners(globalContext.getProject());
+        List<PermissionDef> permissionDefs = buildPermissionDefs(permToCommentOwnersMap);
         savePermissionDefs(permissionDefs);
     }
 
-    private List<PsiDocCommentOwner> buildDocCommentOwners(PsiFile[] filesWithPerm, String perm) {
-        System.out.println("\nClasses containing " + perm + " in comments: " + filesWithPerm.length);
+    private Map<String, List<PsiDocCommentOwner>> buildDocCommentOwners(Project project) {
+        return PermMap.wordMap.keySet().stream().collect(Collectors.toMap(
+                perm -> perm,
+                perm -> buildDocCommentOwners(project, PermMap.wordMap.get(perm))
+        ));
+    }
+
+    private List<PsiDocCommentOwner> buildDocCommentOwners(Project project, String permWord) {
+        GlobalSearchScope libScope = ProjectScope.getLibrariesScope(project);
+        PsiFile[] filesWithPerm = CacheManager.SERVICE.getInstance(project)
+                .getFilesWithWord(permWord, UsageSearchContext.IN_COMMENTS, libScope, true);
+
+        System.out.println("\nClasses containing " + permWord + " in comments: " + filesWithPerm.length);
         int totalOccurrences = Arrays.stream(filesWithPerm)
-                .mapToInt(elem -> occurrencesInType(elem, perm, PsiComment.class)).sum();
+                .mapToInt(file -> occurrencesInType(file, permWord, PsiComment.class)).sum();
         int javadocOccurrences = Arrays.stream(filesWithPerm)
-                .mapToInt(elem -> occurrencesInType(elem, perm, PsiDocComment.class)).sum();
+                .mapToInt(file -> occurrencesInType(file, permWord, PsiDocComment.class)).sum();
         System.out.println(
                 "Total occurrences in \n\tall comments: " + totalOccurrences + "\n\tjavadoc: " + javadocOccurrences);
         System.out.println("==============================================");
@@ -62,8 +70,8 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
         Arrays.stream(filesWithPerm).flatMap(file -> PsiTreeUtil.getChildrenOfAnyType(file, PsiClass.class).stream())
                 .forEach(psiClass -> {
                     System.out.println(psiClass.getQualifiedName()
-                            + ", com:" + occurrencesInType(psiClass, perm, PsiComment.class)
-                            + ", javadoc:" + occurrencesInType(psiClass, perm, PsiDocComment.class));
+                            + ", com:" + occurrencesInType(psiClass, permWord, PsiComment.class)
+                            + ", javadoc:" + occurrencesInType(psiClass, permWord, PsiDocComment.class));
                     Collection<PsiDocCommentOwner> childCommentOwners =
                             PsiTreeUtil.findChildrenOfType(psiClass, PsiDocCommentOwner.class);
                     List<PsiDocCommentOwner> commentOwners = new ArrayList<>(childCommentOwners.size() + 1);
@@ -72,11 +80,11 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
 
                     List<PsiDocCommentOwner> permCommentOwners = commentOwners.stream().filter(comOwner ->
                             comOwner.getDocComment() != null
-                                    && comOwner.getDocComment().getText().contains(perm)
+                                    && comOwner.getDocComment().getText().contains(permWord)
                     ).collect(Collectors.toList());
                     for (PsiDocCommentOwner elem : permCommentOwners) {
                         //noinspection ConstantConditions
-                        int occurrences = occurrences(elem.getDocComment().getText(), perm);
+                        int occurrences = occurrences(elem.getDocComment().getText(), permWord);
                         System.out.println("\t" + elem.getNode().getElementType() + ": " + elem.getName()
                                 + ": " + occurrences);
                         if (occurrences > 0) {
@@ -88,8 +96,12 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
         return result;
     }
 
-    private List<PermissionDef> buildPermissionDefs(List<PsiDocCommentOwner> docCommentOwners, String perm) {
-        return docCommentOwners.stream().map(docCommentOwner -> buildPermissionDef(docCommentOwner, perm))
+    private List<PermissionDef> buildPermissionDefs(Map<String, List<PsiDocCommentOwner>> permToCommentOwnersMap) {
+        //todo properly handle entities with multiple permissions
+        //For now there will be multiple permission definitions per entity, one per each permission.
+        return permToCommentOwnersMap.keySet().stream()
+                .flatMap(perm -> permToCommentOwnersMap.get(perm).stream()
+                        .map(commentOwner -> buildPermissionDef(commentOwner, perm)))
                 .collect(Collectors.toList());
     }
 
