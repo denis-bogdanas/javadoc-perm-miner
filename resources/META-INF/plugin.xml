@@ -33,7 +33,7 @@
                         serviceImplementation="edu.oregonstate.jdminer.settings.PersistentSettings"/>
     <applicationConfigurable instance="edu.oregonstate.jdminer.settings.SettingsConfigurable"/>-->
 
-    <globalInspection implementationClass="edu.oregonstate.jdminer.inspect.PermissionGuardInspection"
+    <globalInspection implementationClass="edu.oregonstate.jdminer.inspect.JavadocPermMinerInspection"
                       groupBundle="messages.InspectionsBundle"
                       groupPath="Android" groupName="DroidPerm"
                       displayName="Javadoc Permissions Miner"

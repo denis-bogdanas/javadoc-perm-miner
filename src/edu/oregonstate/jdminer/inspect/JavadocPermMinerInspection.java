@@ -24,9 +24,9 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class PermissionGuardInspection extends GlobalInspectionTool {
+public class JavadocPermMinerInspection extends GlobalInspectionTool {
 
-    private static final Logger LOG = Logger.getInstance(PermissionGuardInspection.class);
+    private static final Logger LOG = Logger.getInstance(JavadocPermMinerInspection.class);
     private static final File XML_OUT = new File("d:/DroidPerm/javadoc-perm-miner/temp/javadoc-xml-out.xml");
 
     @Override
