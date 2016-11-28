@@ -6,9 +6,6 @@ import com.intellij.codeInspection.GlobalInspectionTool;
 import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.ProblemDescriptionsProcessor;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.module.Module;
-import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.cache.CacheManager;
 import com.intellij.psi.javadoc.PsiDocComment;
@@ -40,17 +37,6 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
     public void runInspection(@NotNull AnalysisScope scope, @NotNull InspectionManager manager,
                               @NotNull GlobalInspectionContext globalContext,
                               @NotNull ProblemDescriptionsProcessor problemDescriptionsProcessor) {
-        Module module = null;
-        try {
-            module = IntellijUtil.getModule(scope, globalContext.getProject());
-        } catch (DroidPermException e) {
-            LOG.error(e);
-        }
-        if (module == null) {
-            LOG.warn("Analysis scope does not contain a module.");
-            return;
-        }
-        LOG.info("inspecting module " + module.getName());
         GlobalSearchScope libScope = ProjectScope.getLibrariesScope(globalContext.getProject());
         final String perm = "ACCESS_COARSE_LOCATION";
         PsiFile[] filesWithPerm = CacheManager.SERVICE.getInstance(globalContext.getProject())
@@ -170,14 +156,5 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
         //noinspection unchecked
         return PsiTreeUtil.findChildrenOfAnyType(elem, psiClass).stream()
                 .mapToInt(comm -> occurrences(comm.getText(), str)).sum();
-    }
-
-    private TextRange lineToTextRange(int droidPermLine, PsiMethod psiMethod) {
-        PsiDocumentManager docManager = PsiDocumentManager.getInstance(psiMethod.getProject());
-        Document document = docManager.getDocument(psiMethod.getContainingFile());
-        assert document != null;
-        int intellijLine = droidPermLine - 1; // in DroidPerm lines start from 1, in Intellij - from 0.
-
-        return new TextRange(document.getLineStartOffset(intellijLine), document.getLineEndOffset(intellijLine));
     }
 }
