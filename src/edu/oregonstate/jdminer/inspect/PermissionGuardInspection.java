@@ -17,11 +17,12 @@ import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.UsageSearchContext;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
+import org.oregonstate.droidperm.jaxb.JaxbUtil;
+import org.oregonstate.droidperm.perm.miner.XmlPermDefMiner;
+import org.oregonstate.droidperm.perm.miner.jaxb_out.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import javax.xml.bind.JAXBException;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class PermissionGuardInspection extends GlobalInspectionTool {
@@ -50,23 +51,27 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
         LOG.info("inspecting module " + module.getName());
         GlobalSearchScope libScope = ProjectScope.getLibrariesScope(globalContext.getProject());
         final String perm = "ACCESS_COARSE_LOCATION";
-        //todo only Java files
-        PsiFile[] filesWithLoc = CacheManager.SERVICE.getInstance(globalContext.getProject())
+        PsiFile[] filesWithPerm = CacheManager.SERVICE.getInstance(globalContext.getProject())
                 .getFilesWithWord(perm, UsageSearchContext.IN_COMMENTS, libScope, true);
-        processFilesWithLocation(filesWithLoc, perm);
+        List<PsiDocCommentOwner> docCommentOwners = buildDocCommentOwners(filesWithPerm, perm);
+        //todo pass fully qualified location
+        List<PermissionDef> permissionDefs = buildPermissionDefs(docCommentOwners, perm);
+        printPermissionDefs(permissionDefs);
     }
 
-    private void processFilesWithLocation(PsiFile[] filesWithLoc, String perm) {
-        System.out.println("\nClasses containing " + perm + " in comments: " + filesWithLoc.length);
-        int totalOccurrences = Arrays.stream(filesWithLoc)
+    private List<PsiDocCommentOwner> buildDocCommentOwners(PsiFile[] filesWithPerm, String perm) {
+        System.out.println("\nClasses containing " + perm + " in comments: " + filesWithPerm.length);
+        int totalOccurrences = Arrays.stream(filesWithPerm)
                 .mapToInt(elem -> occurrencesInType(elem, perm, PsiComment.class)).sum();
-        int javadocOccurrences = Arrays.stream(filesWithLoc)
+        int javadocOccurrences = Arrays.stream(filesWithPerm)
                 .mapToInt(elem -> occurrencesInType(elem, perm, PsiDocComment.class)).sum();
         System.out.println(
                 "Total occurrences in \n\tall comments: " + totalOccurrences + "\n\tjavadoc: " + javadocOccurrences);
         System.out.println("==============================================");
+        List<PsiDocCommentOwner> result = new ArrayList<>();
+        //Because we eventually check for classes, occurrences outside Java will be ignored.
         //noinspection unchecked
-        Arrays.stream(filesWithLoc).flatMap(file -> PsiTreeUtil.getChildrenOfAnyType(file, PsiClass.class).stream())
+        Arrays.stream(filesWithPerm).flatMap(file -> PsiTreeUtil.getChildrenOfAnyType(file, PsiClass.class).stream())
                 .forEach(psiClass -> {
                     System.out.println(psiClass.getQualifiedName()
                             + ", com:" + occurrencesInType(psiClass, perm, PsiComment.class)
@@ -83,11 +88,72 @@ public class PermissionGuardInspection extends GlobalInspectionTool {
                     ).collect(Collectors.toList());
                     for (PsiDocCommentOwner elem : locCommentOwners) {
                         //noinspection ConstantConditions
+                        int occurrences = occurrences(elem.getDocComment().getText(), perm);
                         System.out.println("\t" + elem.getNode().getElementType() + ": " + elem.getName()
-                                + ": " + occurrences(elem.getDocComment().getText(), perm));
+                                + ": " + occurrences);
+                        if (occurrences > 0) {
+                            result.add(elem);
+                        }
                     }
                 });
         System.out.println();
+        return result;
+    }
+
+    private List<PermissionDef> buildPermissionDefs(List<PsiDocCommentOwner> docCommentOwners, String perm) {
+        return docCommentOwners.stream().map(docCommentOwner -> buildPermissionDef(docCommentOwner, perm))
+                .collect(Collectors.toList());
+    }
+
+    private PermissionDef buildPermissionDef(PsiDocCommentOwner docCommentOwner, String perm) {
+        PsiClass classOrSelf =
+                docCommentOwner instanceof PsiClass ? (PsiClass) docCommentOwner : docCommentOwner.getContainingClass();
+        assert classOrSelf != null;
+        String className = XmlPermDefMiner.processInnerClasses(classOrSelf.getQualifiedName());
+        String target;
+        PermTargetKind targetKind;
+        if (docCommentOwner instanceof PsiClass) {
+            target = null;
+            targetKind = PermTargetKind.Class;
+        } else if (docCommentOwner instanceof PsiField) {
+            target = XmlPermDefMiner.processInnerClasses(docCommentOwner.getName());
+            targetKind = PermTargetKind.Field;
+        } else if (docCommentOwner instanceof PsiMethod) {
+            PsiMethod meth = (PsiMethod) docCommentOwner;
+            StringBuilder sb = new StringBuilder();
+            //noinspection ConstantConditions
+            sb.append(meth.getReturnType().getCanonicalText()).append(" ");
+            sb.append(meth.getName()).append("(");
+            PsiParameter[] parameters = meth.getParameterList().getParameters();
+            for (int i = 0; i < parameters.length; i++) {
+                sb.append(parameters[i].getType().getCanonicalText());
+                if (i < parameters.length - 1) {
+                    sb.append(", ");
+                }
+            }
+            sb.append(")");
+            target = XmlPermDefMiner.cleanupSignature(sb.toString());
+            targetKind = PermTargetKind.Method;
+        } else {
+            throw new RuntimeException("Invalid PsiElement type: " + docCommentOwner);
+        }
+        PermissionDef permDef = new PermissionDef();
+        permDef.setClassName(className);
+        permDef.setTarget(target);
+        permDef.setTargetKind(targetKind);
+        permDef.setPermissionRel(PermissionRel.AllOf);
+        permDef.setPermissions(Collections.singletonList(new Permission(perm, null)));
+        return permDef;
+    }
+
+    private void printPermissionDefs(List<PermissionDef> permissionDefs) {
+        System.out.println("\nPermission definitions dump");
+        System.out.println("==============================================");
+        try {
+            JaxbUtil.print(new PermissionDefList(permissionDefs), PermissionDefList.class);
+        } catch (JAXBException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static int occurrences(String str, String substr) {
