@@ -1,5 +1,7 @@
 package edu.oregonstate.jdminer.inspect;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import com.intellij.analysis.AnalysisScope;
 import com.intellij.codeInspection.GlobalInspectionContext;
 import com.intellij.codeInspection.GlobalInspectionTool;
@@ -18,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import org.oregonstate.droidperm.jaxb.JaxbUtil;
 import org.oregonstate.droidperm.perm.miner.XmlPermDefMiner;
 import org.oregonstate.droidperm.perm.miner.jaxb_out.*;
+import org.oregonstate.droidperm.util.MyCollectors;
 
 import javax.xml.bind.JAXBException;
 import java.io.File;
@@ -38,14 +41,15 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
     public void runInspection(@NotNull AnalysisScope scope, @NotNull InspectionManager manager,
                               @NotNull GlobalInspectionContext globalContext,
                               @NotNull ProblemDescriptionsProcessor problemDescriptionsProcessor) {
-        Map<String, List<PsiDocCommentOwner>> permToCommentOwnersMap =
+        Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap =
                 buildDocCommentOwners(globalContext.getProject());
         List<PermissionDef> permissionDefs = buildPermissionDefs(permToCommentOwnersMap);
         savePermissionDefs(permissionDefs);
     }
 
-    private Map<String, List<PsiDocCommentOwner>> buildDocCommentOwners(Project project) {
-        return PermMap.wordMap.keySet().stream().collect(Collectors.toMap(
+    private Multimap<String, PsiDocCommentOwner> buildDocCommentOwners(Project project) {
+        return PermMap.wordMap.keySet().stream().collect(MyCollectors.toMultimapForCollection(
+                ArrayListMultimap::create,
                 perm -> perm,
                 perm -> buildDocCommentOwners(project, PermMap.wordMap.get(perm))
         ));
@@ -96,16 +100,14 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         return result;
     }
 
-    private List<PermissionDef> buildPermissionDefs(Map<String, List<PsiDocCommentOwner>> permToCommentOwnersMap) {
-        //todo properly handle entities with multiple permissions
-        //For now there will be multiple permission definitions per entity, one per each permission.
+    private List<PermissionDef> buildPermissionDefs(Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap) {
         return permToCommentOwnersMap.keySet().stream()
                 .flatMap(perm -> permToCommentOwnersMap.get(perm).stream()
-                        .map(commentOwner -> buildPermissionDef(commentOwner, perm)))
+                        .map(commentOwner -> buildPermissionDef(commentOwner, Collections.singletonList(perm))))
                 .collect(Collectors.toList());
     }
 
-    private PermissionDef buildPermissionDef(PsiDocCommentOwner docCommentOwner, String perm) {
+    private PermissionDef buildPermissionDef(PsiDocCommentOwner docCommentOwner, List<String> permList) {
         PsiClass classOrSelf =
                 docCommentOwner instanceof PsiClass ? (PsiClass) docCommentOwner : docCommentOwner.getContainingClass();
         assert classOrSelf != null;
@@ -142,7 +144,10 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         permDef.setTarget(target);
         permDef.setTargetKind(targetKind);
         permDef.setPermissionRel(PermissionRel.AllOf);
-        permDef.setPermissions(Collections.singletonList(new Permission(perm, null)));
+
+        List<Permission> permissions = permList.stream().map(perm -> new Permission(perm, null))
+                .collect(Collectors.toList());
+        permDef.setPermissions(permissions);
         return permDef;
     }
 
