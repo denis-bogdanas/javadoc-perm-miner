@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 public class JavadocPermMinerInspection extends GlobalInspectionTool {
 
     private static final Logger LOG = Logger.getInstance(JavadocPermMinerInspection.class);
+    private static final File METADATA_XML = new File("d:/DroidPerm/droid-perm/config/perm-def-API-23.xml");
     private static final File XML_OUT = new File("d:/DroidPerm/javadoc-perm-miner/temp/javadoc-xml-out.xml");
 
     @Override
@@ -47,10 +48,21 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
     public void runInspection(@NotNull AnalysisScope scope, @NotNull InspectionManager manager,
                               @NotNull GlobalInspectionContext globalContext,
                               @NotNull ProblemDescriptionsProcessor problemDescriptionsProcessor) {
-        Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap =
-                buildDocCommentOwners(globalContext.getProject());
-        List<PermissionDef> permissionDefs = buildPermissionDefs(permToCommentOwnersMap);
-        savePermissionDefs(permissionDefs);
+        try {
+            List<PermissionDef> metadadaPermDefs = XmlPermDefMiner.load(METADATA_XML).getPermissionDefs();
+            Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap =
+                    buildDocCommentOwners(globalContext.getProject());
+            List<PermissionDef> collectedPermDef = buildPermissionDefs(permToCommentOwnersMap);
+            List<PermissionDef> newPermDefs = new ArrayList<>(collectedPermDef);
+            newPermDefs.removeAll(metadadaPermDefs);
+
+            System.out.println("Total permission defs collected: " + collectedPermDef);
+            System.out.println("New permission defs, after removing metadata defs: " + newPermDefs);
+
+            savePermissionDefs(newPermDefs);
+        } catch (JAXBException e) {
+            LOG.error(e.getMessage(), e);
+        }
     }
 
     private Multimap<String, PsiDocCommentOwner> buildDocCommentOwners(Project project) {
@@ -162,12 +174,8 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         return permDef;
     }
 
-    private void savePermissionDefs(List<PermissionDef> permissionDefs) {
-        try {
-            JaxbUtil.save(new PermissionDefList(permissionDefs), PermissionDefList.class, XML_OUT);
-        } catch (JAXBException e) {
-            throw new RuntimeException(e);
-        }
+    private void savePermissionDefs(List<PermissionDef> permissionDefs) throws JAXBException {
+        JaxbUtil.save(new PermissionDefList(permissionDefs), PermissionDefList.class, XML_OUT);
     }
 
     private static int occurrences(String str, String substr) {
