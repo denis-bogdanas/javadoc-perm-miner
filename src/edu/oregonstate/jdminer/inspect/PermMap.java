@@ -26,7 +26,7 @@ public class PermMap {
             .put("android.permission.CALL_PHONE", "CALL_PHONE")
             .put("android.permission.READ_CALL_LOG", "READ_CALL_LOG")
             .put("android.permission.WRITE_CALL_LOG", "WRITE_CALL_LOG")
-            .put("android.permission.ADD_VOICEMAIL", "ADD_VOICEMAIL")
+            .put("com.android.voicemail.permission.ADD_VOICEMAIL", "ADD_VOICEMAIL")
             .put("android.permission.USE_SIP", "USE_SIP")
             .put("android.permission.PROCESS_OUTGOING_CALLS", "PROCESS_OUTGOING_CALLS")
             .put("android.permission.BODY_SENSORS", "BODY_SENSORS")

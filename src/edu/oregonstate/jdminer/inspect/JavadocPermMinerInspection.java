@@ -1,7 +1,9 @@
 package edu.oregonstate.jdminer.inspect;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.intellij.analysis.AnalysisScope;
 import com.intellij.codeInspection.GlobalInspectionContext;
 import com.intellij.codeInspection.GlobalInspectionTool;
@@ -21,10 +23,14 @@ import org.oregonstate.droidperm.jaxb.JaxbUtil;
 import org.oregonstate.droidperm.perm.miner.XmlPermDefMiner;
 import org.oregonstate.droidperm.perm.miner.jaxb_out.*;
 import org.oregonstate.droidperm.util.MyCollectors;
+import org.oregonstate.droidperm.util.SortUtil;
 
 import javax.xml.bind.JAXBException;
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class JavadocPermMinerInspection extends GlobalInspectionTool {
@@ -101,13 +107,15 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
     }
 
     private List<PermissionDef> buildPermissionDefs(Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap) {
-        return permToCommentOwnersMap.keySet().stream()
-                .flatMap(perm -> permToCommentOwnersMap.get(perm).stream()
-                        .map(commentOwner -> buildPermissionDef(commentOwner, Collections.singletonList(perm))))
+        Multimap<PsiDocCommentOwner, String> commentOwnerToPermMap
+                = Multimaps.invertFrom(permToCommentOwnersMap, HashMultimap.create());
+        return commentOwnerToPermMap.keySet().stream()
+                .map(elem -> buildPermissionDef(elem, commentOwnerToPermMap.get(elem)))
+                .sorted(SortUtil.permissionDefComparator)
                 .collect(Collectors.toList());
     }
 
-    private PermissionDef buildPermissionDef(PsiDocCommentOwner docCommentOwner, List<String> permList) {
+    private PermissionDef buildPermissionDef(PsiDocCommentOwner docCommentOwner, Collection<String> permColl) {
         PsiClass classOrSelf =
                 docCommentOwner instanceof PsiClass ? (PsiClass) docCommentOwner : docCommentOwner.getContainingClass();
         assert classOrSelf != null;
@@ -145,7 +153,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         permDef.setTargetKind(targetKind);
         permDef.setPermissionRel(PermissionRel.AllOf);
 
-        List<Permission> permissions = permList.stream().map(perm -> new Permission(perm, null))
+        List<Permission> permissions = permColl.stream().sorted().map(perm -> new Permission(perm, null))
                 .collect(Collectors.toList());
         permDef.setPermissions(permissions);
         return permDef;
