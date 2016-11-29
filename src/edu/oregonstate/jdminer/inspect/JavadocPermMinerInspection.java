@@ -56,8 +56,8 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
             List<PermissionDef> newPermDefs = new ArrayList<>(collectedPermDef);
             newPermDefs.removeAll(metadadaPermDefs);
 
-            System.out.println("Total permission defs collected: " + collectedPermDef);
-            System.out.println("New permission defs, after removing metadata defs: " + newPermDefs);
+            System.out.println("Total permission defs collected: " + collectedPermDef.size());
+            System.out.println("New permission defs, after removing metadata defs: " + newPermDefs.size());
 
             savePermissionDefs(newPermDefs);
         } catch (JAXBException e) {
@@ -66,10 +66,10 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
     }
 
     private Multimap<String, PsiDocCommentOwner> buildDocCommentOwners(Project project) {
-        return PermMap.wordMap.keySet().stream().collect(MyCollectors.toMultimapForCollection(
+        return JPMData.wordMap.keySet().stream().collect(MyCollectors.toMultimapForCollection(
                 ArrayListMultimap::create,
                 perm -> perm,
-                perm -> buildDocCommentOwners(project, PermMap.wordMap.get(perm))
+                perm -> buildDocCommentOwners(project, JPMData.wordMap.get(perm))
         ));
     }
 
@@ -91,9 +91,16 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         //noinspection unchecked
         Arrays.stream(filesWithPerm).flatMap(file -> PsiTreeUtil.getChildrenOfAnyType(file, PsiClass.class).stream())
                 .forEach(psiClass -> {
+                    boolean excluded = JPMUtil.startsWitAny(psiClass.getQualifiedName(), JPMData.classExclusionList);
+                    String excludedStr = excluded ? ", excluded" : "";
                     System.out.println(psiClass.getQualifiedName()
                             + ", com:" + occurrencesInType(psiClass, permWord, PsiComment.class)
-                            + ", javadoc:" + occurrencesInType(psiClass, permWord, PsiDocComment.class));
+                            + ", javadoc:" + occurrencesInType(psiClass, permWord, PsiDocComment.class)
+                            + excludedStr);
+                    if (excluded) {
+                        return;
+                    }
+
                     Collection<PsiDocCommentOwner> childCommentOwners =
                             PsiTreeUtil.findChildrenOfType(psiClass, PsiDocCommentOwner.class);
                     List<PsiDocCommentOwner> commentOwners = new ArrayList<>(childCommentOwners.size() + 1);

@@ -2,12 +2,16 @@ package edu.oregonstate.jdminer.inspect;
 
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
+ * Various constant data structrures for Javadoc permission miner.
+ *
  * @author Denis Bogdanas <bogdanad@oregonstate.edu> Created on 11/28/2016.
  */
-public class PermMap {
+public class JPMData {
 
     /**
      * Map from permissions to regex expressions used to search for these permissions in javadoc.
@@ -44,4 +48,14 @@ public class PermMap {
      */
     public static final Map<String, String> regexMap = ImmutableMap.<String, String>builder()
             .build();
+
+    /**
+     * Classes and packages to be excluded from the output.
+     */
+    public static final List<String> classExclusionList = Arrays.asList(
+            "android.app.AppOpsManager",
+            "android.os.Build",
+            "android.content.pm.PackageParser", //from Intellij custom scopes
+            "android.support.v17" //For TV devices only, unlikely to be used by f-droid apps.
+    );
 }
