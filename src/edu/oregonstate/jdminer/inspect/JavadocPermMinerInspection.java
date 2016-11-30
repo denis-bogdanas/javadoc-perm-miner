@@ -210,7 +210,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
             int index = docText.indexOf(permName);
             while (index != -1) {
                 indexes.add(index);
-                index = docText.indexOf(docText, index + 1);
+                index = docText.indexOf(permName, index + 1);
             }
         });
         Collections.sort(indexes);
