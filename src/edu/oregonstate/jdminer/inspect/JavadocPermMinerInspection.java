@@ -114,9 +114,11 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                     for (PsiDocCommentOwner elem : permCommentOwners) {
                         //noinspection ConstantConditions
                         String docText = elem.getDocComment().getText();
-                        boolean hidden = docText.contains("@hide");
+                        assert elem.getModifierList() != null;
+                        boolean hidden = docText.contains("@hide")
+                                || !elem.getModifierList().hasModifierProperty(PsiModifier.PUBLIC);
                         int occurrences = occurrences(docText, permWord);
-                        String hiddenText = hidden ? ", @hide" : "";
+                        String hiddenText = hidden ? ", hidden" : "";
                         System.out.println("\t" + elem.getNode().getElementType() + ": " + elem.getName()
                                 + ": " + occurrences + hiddenText);
                         if (occurrences > 0 && !hidden) {
