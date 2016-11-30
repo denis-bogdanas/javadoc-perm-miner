@@ -31,6 +31,8 @@ import org.oregonstate.droidperm.util.SortUtil;
 import javax.xml.bind.JAXBException;
 import java.io.File;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class JavadocPermMinerInspection extends GlobalInspectionTool {
@@ -69,20 +71,21 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         return JPMData.wordMap.keySet().stream().collect(MyCollectors.toMultimapForCollection(
                 ArrayListMultimap::create,
                 perm -> perm,
-                perm -> buildDocCommentOwners(project, JPMData.wordMap.get(perm))
+                perm -> buildDocCommentOwners(project, perm)
         ));
     }
 
-    private List<PsiDocCommentOwner> buildDocCommentOwners(Project project, String permWord) {
+    private List<PsiDocCommentOwner> buildDocCommentOwners(Project project, String perm) {
+        String permWord = JPMData.wordMap.get(perm);
         GlobalSearchScope libScope = ProjectScope.getLibrariesScope(project);
         PsiFile[] filesWithPerm = CacheManager.SERVICE.getInstance(project)
                 .getFilesWithWord(permWord, UsageSearchContext.IN_COMMENTS, libScope, true);
 
         System.out.println("\nClasses containing " + permWord + " in comments: " + filesWithPerm.length);
         int totalOccurrences = Arrays.stream(filesWithPerm)
-                .mapToInt(file -> occurrencesInType(file, permWord, PsiComment.class)).sum();
+                .mapToInt(file -> occurrencesInType(file, perm, PsiComment.class)).sum();
         int javadocOccurrences = Arrays.stream(filesWithPerm)
-                .mapToInt(file -> occurrencesInType(file, permWord, PsiDocComment.class)).sum();
+                .mapToInt(file -> occurrencesInType(file, perm, PsiDocComment.class)).sum();
         System.out.println(
                 "Total occurrences in \n\tall comments: " + totalOccurrences + "\n\tjavadoc: " + javadocOccurrences);
         System.out.println("==============================================");
@@ -94,8 +97,8 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                     boolean excluded = JPMUtil.startsWitAny(psiClass.getQualifiedName(), JPMData.classExclusionList);
                     String excludedStr = excluded ? ", excluded" : "";
                     System.out.println(psiClass.getQualifiedName()
-                            + ", com:" + occurrencesInType(psiClass, permWord, PsiComment.class)
-                            + ", javadoc:" + occurrencesInType(psiClass, permWord, PsiDocComment.class)
+                            + ", com:" + occurrencesInType(psiClass, perm, PsiComment.class)
+                            + ", javadoc:" + occurrencesInType(psiClass, perm, PsiDocComment.class)
                             + excludedStr);
                     if (excluded) {
                         return;
@@ -109,7 +112,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
 
                     List<PsiDocCommentOwner> permCommentOwners = commentOwners.stream().filter(comOwner ->
                             comOwner.getDocComment() != null
-                                    && comOwner.getDocComment().getText().contains(permWord)
+                                    && containsPerm(comOwner.getDocComment().getText(), perm)
                     ).collect(Collectors.toList());
                     for (PsiDocCommentOwner elem : permCommentOwners) {
                         //noinspection ConstantConditions
@@ -117,7 +120,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                         assert elem.getModifierList() != null;
                         boolean hidden = docText.contains("@hide")
                                 || !elem.getModifierList().hasModifierProperty(PsiModifier.PUBLIC);
-                        int occurrences = occurrences(docText, permWord);
+                        int occurrences = occurrences(docText, perm);
                         String hiddenText = hidden ? ", hidden" : "";
                         System.out.println("\t" + elem.getNode().getElementType() + ": " + elem.getName()
                                 + ": " + occurrences + hiddenText);
@@ -276,19 +279,44 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         JaxbUtil.save(new PermissionDefList(permissionDefs), PermissionDefList.class, XML_OUT);
     }
 
-    private static int occurrences(String str, String substr) {
+    private static int occurrencesInType(PsiElement elem, String perm, Class<? extends PsiElement> psiClass) {
+        //noinspection unchecked
+        return PsiTreeUtil.findChildrenOfAnyType(elem, psiClass).stream()
+                .mapToInt(comm -> occurrences(comm.getText(), perm)).sum();
+    }
+
+    private static int occurrences(String str, String perm) {
+        return JPMData.regexMap.containsKey(perm) ? occurrencesRegex(str, JPMData.regexMap.get(perm))
+                                                  : occurrencesRegular(str, JPMData.wordMap.get(perm));
+    }
+
+    private static int occurrencesRegular(String str, String permWord) {
         int occurrences = 0;
-        int index = str.indexOf(substr);
+        int index = str.indexOf(permWord);
         while (index != -1) {
             occurrences++;
-            index = str.indexOf(substr, index + 1);
+            index = str.indexOf(permWord, index + 1);
         }
         return occurrences;
     }
 
-    private static int occurrencesInType(PsiElement elem, String str, Class<? extends PsiElement> psiClass) {
-        //noinspection unchecked
-        return PsiTreeUtil.findChildrenOfAnyType(elem, psiClass).stream()
-                .mapToInt(comm -> occurrences(comm.getText(), str)).sum();
+    private static int occurrencesRegex(String str, String permRegex) {
+        Pattern pattern = Pattern.compile(permRegex);
+        Matcher matcher = pattern.matcher(str);
+        int occurrences = 0;
+        while (matcher.find()) {
+            occurrences++;
+        }
+        return occurrences;
+    }
+
+    private boolean containsPerm(String text, String perm) {
+        if (JPMData.regexMap.containsKey(perm)) {
+            Pattern pattern = Pattern.compile(JPMData.regexMap.get(perm));
+            Matcher matcher = pattern.matcher(text);
+            return matcher.find();
+        } else {
+            return text.contains(JPMData.wordMap.get(perm));
+        }
     }
 }

@@ -47,6 +47,7 @@ public class JPMData {
      * Only include permissions for which regex is different than permission word.
      */
     public static final Map<String, String> regexMap = ImmutableMap.<String, String>builder()
+            .put("android.permission.CAMERA", "[^_]CAMERA[^_]")
             .build();
 
     /**
