@@ -10,7 +10,9 @@ import com.intellij.codeInspection.GlobalInspectionTool;
 import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.ProblemDescriptionsProcessor;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.cache.CacheManager;
 import com.intellij.psi.javadoc.PsiDocComment;
@@ -18,6 +20,7 @@ import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.UsageSearchContext;
 import com.intellij.psi.util.PsiTreeUtil;
+import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.oregonstate.droidperm.jaxb.JaxbUtil;
 import org.oregonstate.droidperm.perm.miner.XmlPermDefMiner;
@@ -27,10 +30,7 @@ import org.oregonstate.droidperm.util.SortUtil;
 
 import javax.xml.bind.JAXBException;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class JavadocPermMinerInspection extends GlobalInspectionTool {
@@ -178,7 +178,96 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         List<Permission> permissions = permColl.stream().sorted().map(perm -> new Permission(perm, null))
                 .collect(Collectors.toList());
         permDef.setPermissions(permissions);
+        permDef.setComment(buildComment(docCommentOwner.getDocComment(), permissions));
         return permDef;
+    }
+
+    private String buildComment(PsiDocComment docComment, List<Permission> permissions) {
+        final int contextLen = 150;
+        String docText = docComment.getText();
+        List<Integer> indexes = buildOccurrenceIndexes(docText, permissions);
+        List<TextRange> ranges = buildOccurrenceRanges(indexes, contextLen, docText.length());
+        List<TextRange> fileRanges = expandToFileRangesFullLines(docComment, ranges);
+
+        //Concatenate text in the ranges
+        String fileText = docComment.getContainingFile().getText();
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n");
+        for (TextRange range : fileRanges) {
+            sb.append(range.substring(fileText)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Collect indexes of positions where permissions are referred, sorted ascendingly.
+     */
+    @NotNull
+    private List<Integer> buildOccurrenceIndexes(String docText, List<Permission> permissions) {
+        List<Integer> indexes = new ArrayList<>();
+        permissions.forEach(perm -> {
+            String permName = StringUtils.substringAfterLast(perm.getName(), ".");
+            int index = docText.indexOf(permName);
+            while (index != -1) {
+                indexes.add(index);
+                index = docText.indexOf(docText, index + 1);
+            }
+        });
+        Collections.sort(indexes);
+        return indexes;
+    }
+
+    /**
+     * Convert the indexes into intervals of text that should be included in the final comment.
+     * By default for each index I'll consider [index + contextLen, index - contextLen].
+     * If 2 indexes are less than 2*contextLen appart, they will be joined into one interval.
+     */
+    @NotNull
+    private List<TextRange> buildOccurrenceRanges(List<Integer> indexes, int contextLen, int docLength) {
+        List<TextRange> ranges = new ArrayList<>();
+        TextRange current = null;
+        for (int index : indexes) {
+            TextRange indexRange = buildTextRange(index, contextLen, docLength);
+            if (current == null) {
+                current = indexRange;
+            } else {
+                if (current.intersects(indexRange)) {
+                    //combine the 2 ranges
+                    current = current.union(indexRange);
+                } else {
+                    //save the old range and make the new one current
+                    ranges.add(current);
+                    current = indexRange;
+                }
+            }
+        }
+        if (current != null) {
+            ranges.add(current);
+        }
+        return ranges;
+    }
+
+    @NotNull
+    private TextRange buildTextRange(int index, int contextLen, int docLength) {
+        int start = index < contextLen ? 0 : index - contextLen;
+        int end = index > docLength - contextLen ? docLength : index + contextLen;
+        return new TextRange(start, end);
+    }
+
+    /**
+     * Convert ranges in comment into ranges in file, expanding them to include full lines.
+     */
+    private List<TextRange> expandToFileRangesFullLines(PsiDocComment docComment, List<TextRange> ranges) {
+        PsiDocumentManager docManager = PsiDocumentManager.getInstance(docComment.getProject());
+        Document document = docManager.getDocument(docComment.getContainingFile());
+        assert document != null;
+        int docStartOffset = docComment.getTextRange().getStartOffset();
+        return ranges.stream().map(range -> {
+            int newStartOffset
+                    = document.getLineStartOffset(document.getLineNumber(docStartOffset + range.getStartOffset()));
+            int newEndOffset = document.getLineEndOffset(document.getLineNumber(docStartOffset + range.getEndOffset()));
+            return new TextRange(newStartOffset, newEndOffset);
+        }).collect(Collectors.toList());
     }
 
     private void savePermissionDefs(List<PermissionDef> permissionDefs) throws JAXBException {
