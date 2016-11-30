@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<PermissionDefinitions>
+  <permissionDef className="android.app.Activity" permissionRel="AllOf" target="void requestPermissions(java.lang.String[], int)" targetKind="Method">
+    <permission name="android.permission.READ_CONTACTS"/>
+  </permissionDef>
+  <permissionDef className="android.app.Fragment" permissionRel="AllOf" target="void requestPermissions(java.lang.String[], int)" targetKind="Method">
+    <permission name="android.permission.READ_CONTACTS"/>
+  </permissionDef>
+</PermissionDefinitions>

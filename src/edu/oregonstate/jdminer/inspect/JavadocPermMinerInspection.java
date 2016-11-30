@@ -52,14 +52,17 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                               @NotNull ProblemDescriptionsProcessor problemDescriptionsProcessor) {
         try {
             List<PermissionDef> metadadaPermDefs = XmlPermDefMiner.load(METADATA_XML).getPermissionDefs();
+            List<PermissionDef> excludedPermDefs =
+                    XmlPermDefMiner.load(getClass().getResource("ExcludedPermDef.xml")).getPermissionDefs();
             Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap =
                     buildDocCommentOwners(globalContext.getProject());
             List<PermissionDef> collectedPermDef = buildPermissionDefs(permToCommentOwnersMap);
             List<PermissionDef> newPermDefs = new ArrayList<>(collectedPermDef);
             newPermDefs.removeAll(metadadaPermDefs);
+            newPermDefs.removeAll(excludedPermDefs);
 
             System.out.println("Total permission defs collected: " + collectedPermDef.size());
-            System.out.println("New permission defs, after removing metadata defs: " + newPermDefs.size());
+            System.out.println("New permission defs, after removing metadata and excluded defs: " + newPermDefs.size());
 
             savePermissionDefs(newPermDefs);
         } catch (JAXBException e) {
