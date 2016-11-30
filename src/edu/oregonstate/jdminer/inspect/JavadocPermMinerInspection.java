@@ -187,6 +187,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                 .collect(Collectors.toList());
         permDef.setPermissions(permissions);
         permDef.setComment(buildComment(docCommentOwner.getDocComment(), permissions));
+        permDef.setConditional(true);
         return permDef;
     }
 
