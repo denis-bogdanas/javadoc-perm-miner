@@ -57,6 +57,8 @@ public class JPMData {
             "android.app.AppOpsManager",
             "android.os.Build",
             "android.content.pm.PackageParser", //from Intellij custom scopes
-            "android.support.v17" //For TV devices only, unlikely to be used by f-droid apps.
+            "android.support.v17", //For TV devices only, unlikely to be used by f-droid apps.
+            "android.location.LocationManager",
+            "android.support.v4.app.Fragment"
     );
 }

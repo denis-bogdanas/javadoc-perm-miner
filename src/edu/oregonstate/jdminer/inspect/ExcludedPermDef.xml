@@ -6,4 +6,39 @@
   <permissionDef className="android.app.Fragment" permissionRel="AllOf" target="void requestPermissions(java.lang.String[], int)" targetKind="Method">
     <permission name="android.permission.READ_CONTACTS"/>
   </permissionDef>
+
+  <!--These below can pretty much be encoded as field sensitives of type int. Not sure if I should exclude them-->
+  <permissionDef className="android.telephony.PhoneStateListener" conditional="true" permissionRel="AllOf" target="LISTEN_CALL_FORWARDING_INDICATOR" targetKind="Field">
+    <permission name="android.permission.READ_PHONE_STATE"/>
+  </permissionDef>
+  <permissionDef className="android.telephony.PhoneStateListener" conditional="true" permissionRel="AllOf" target="LISTEN_CELL_LOCATION" targetKind="Field">
+    <permission name="android.permission.ACCESS_COARSE_LOCATION"/>
+  </permissionDef>
+  <permissionDef className="android.telephony.PhoneStateListener" conditional="true" permissionRel="AllOf" target="LISTEN_MESSAGE_WAITING_INDICATOR" targetKind="Field">
+    <permission name="android.permission.READ_PHONE_STATE"/>
+  </permissionDef>
+  <permissionDef className="android.telephony.PhoneStateListener" conditional="true" permissionRel="AllOf" target="LISTEN_SIGNAL_STRENGTH" targetKind="Field">
+    <permission name="android.permission.READ_PHONE_STATE"/>
+  </permissionDef>
+
+  <!--Looks like permissions would be requested from other side regardless of whether this method is called or not.-->
+  <permissionDef className="android.webkit.WebSettings" conditional="true" permissionRel="AllOf" target="void setGeolocationEnabled(boolean)" targetKind="Method">
+    <permission name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <permission name="android.permission.ACCESS_FINE_LOCATION"/>
+  </permissionDef>
+
+  <!--Unrelated to protected resources access.-->
+  <permissionDef className="com.android.framework.permission.tests.SmsManagerPermissionTest" conditional="true" permissionRel="AllOf" target="void testSendDataMessage()" targetKind="Method">
+    <comment>
+      /**
+      * Verify that SmsManager.sendDataMessage requires permissions.
+      * &lt;p&gt;Tests Permission:
+      *   {@link android.Manifest.permission#SEND_SMS}.
+      */
+    </comment>
+    <permission name="android.permission.SEND_SMS"/>
+  </permissionDef>
+  <permissionDef className="com.android.framework.permission.tests.SmsManagerPermissionTest" conditional="true" permissionRel="AllOf" target="void testSendTextMessage()" targetKind="Method">
+    <permission name="android.permission.SEND_SMS"/>
+  </permissionDef>
 </PermissionDefinitions>
