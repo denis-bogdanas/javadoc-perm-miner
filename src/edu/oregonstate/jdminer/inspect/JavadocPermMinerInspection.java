@@ -12,6 +12,7 @@ import com.intellij.codeInspection.ProblemDescriptionsProcessor;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.cache.CacheManager;
@@ -58,16 +59,72 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                     buildDocCommentOwners(globalContext.getProject());
             List<PermissionDef> collectedPermDef = buildPermissionDefs(permToCommentOwnersMap);
             List<PermissionDef> newPermDefs = new ArrayList<>(collectedPermDef);
+            List<PermissionDef> classPermDefsCoveredByCustomDefs = JPMData.getClassPermDefsCoveredByCustomDefs();
             newPermDefs.removeAll(metadadaPermDefs);
             newPermDefs.removeAll(excludedPermDefs);
+            newPermDefs.removeAll(classPermDefsCoveredByCustomDefs);
 
             System.out.println("Total permission defs collected: " + collectedPermDef.size());
             System.out.println("New permission defs, after removing metadata and excluded defs: " + newPermDefs.size());
+
+            List<PermissionDef> customPermDefs = buildCustomPermDefs(globalContext.getProject());
+            customPermDefs.removeAll(newPermDefs); //should not change results
+            newPermDefs.addAll(customPermDefs);
+            System.out.println("Final perm defs, after adding custom permissions: " + newPermDefs.size());
 
             savePermissionDefs(newPermDefs);
         } catch (JAXBException e) {
             LOG.error(e.getMessage(), e);
         }
+    }
+
+    private List<PermissionDef> buildCustomPermDefs(Project project) {
+        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
+        GlobalSearchScope libScope = ProjectScope.getLibrariesScope(project);
+
+        List<PermissionDef> result = new ArrayList<>();
+        for (String className : JPMData.classCustomPerm.keySet()) {
+            JPMData.CustomPermDef customPermDef = JPMData.classCustomPerm.get(className);
+            if (customPermDef.permList == null) {
+                continue;//class has to be ignored
+            }
+            PsiClass psiClass = psiFacade.findClass(className, libScope);
+            if (psiClass == null) {
+                LOG.error("Custom class not found: " + className);
+                continue;
+            }
+
+            if (customPermDef.methodNames != null) {
+                customPermDef.methodNames.stream()
+                        .flatMap(methName -> {
+                            PsiMethod[] methods = methName.equals("<init>")
+                                                  ? psiClass.getConstructors()
+                                                  : psiClass.findMethodsByName(methName, false);
+                            if (methods.length == 0) {
+                                LOG.error("Custom method not found: " + className + "." + methName + "()");
+                            }
+                            return Arrays.stream(methods);
+                        })
+                        .map((PsiMethod meth) -> buildPermissionDef(meth, customPermDef.permList))
+                        .forEach(result::add);
+            }
+            if (customPermDef.includeAllMethods) {
+                Arrays.stream(psiClass.getMethods()).filter(psiMeth -> !isHidden(psiMeth, getText(psiMeth)))
+                        .map(psiMeth -> buildPermissionDef(psiMeth, customPermDef.permList))
+                        .forEach(result::add);
+            }
+            if (customPermDef.includeUriFields) {
+                Arrays.stream(psiClass.getFields()).filter(psiField -> !isHidden(psiField, getText(psiField)))
+                        .filter(psiField -> psiField.getType().getCanonicalText().equals("android.net.Uri"))
+                        .map(psiField -> buildPermissionDef(psiField, customPermDef.permList))
+                        .forEach(result::add);
+            }
+        }
+        return result;
+    }
+
+    private String getText(PsiDocCommentOwner commOwner) {
+        return commOwner.getDocComment() != null ? commOwner.getDocComment().getText() : "";
     }
 
     private Multimap<String, PsiDocCommentOwner> buildDocCommentOwners(Project project) {
@@ -120,9 +177,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                     for (PsiDocCommentOwner elem : permCommentOwners) {
                         //noinspection ConstantConditions
                         String docText = elem.getDocComment().getText();
-                        assert elem.getModifierList() != null;
-                        boolean hidden = docText.contains("@hide")
-                                || !elem.getModifierList().hasModifierProperty(PsiModifier.PUBLIC);
+                        boolean hidden = isHidden(elem, docText);
                         int occurrences = occurrences(docText, perm);
                         String hiddenText = hidden ? ", hidden" : "";
                         System.out.println("\t" + elem.getNode().getElementType() + ": " + elem.getName()
@@ -134,6 +189,12 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                 });
         System.out.println();
         return result;
+    }
+
+    private boolean isHidden(PsiDocCommentOwner elem, String docText) {
+        assert elem.getModifierList() != null;
+        return docText.contains("@hide")
+                || !elem.getModifierList().hasModifierProperty(PsiModifier.PUBLIC);
     }
 
     private List<PermissionDef> buildPermissionDefs(Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap) {
@@ -150,19 +211,32 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                 docCommentOwner instanceof PsiClass ? (PsiClass) docCommentOwner : docCommentOwner.getContainingClass();
         assert classOrSelf != null;
         String className = XmlPermDefMiner.processInnerClasses(classOrSelf.getQualifiedName());
+        Pair<String, PermTargetKind> targetAndKind = getTargetAndKind(docCommentOwner);
+        List<Permission> permissions = permColl.stream().sorted().map(perm -> new Permission(perm, null))
+                .collect(Collectors.toList());
+        PermissionDef permDef = new PermissionDef(className, targetAndKind.first, targetAndKind.second, permissions);
+        permDef.setPermissionRel(PermissionRel.AllOf);
+        permDef.setComment(buildComment(docCommentOwner.getDocComment(), permissions));
+        permDef.setConditional(true);
+        return permDef;
+    }
+
+    @NotNull
+    private Pair<String, PermTargetKind> getTargetAndKind(PsiMember member) {
         String target;
         PermTargetKind targetKind;
-        if (docCommentOwner instanceof PsiClass) {
+        if (member instanceof PsiClass) {
             target = null;
             targetKind = PermTargetKind.Class;
-        } else if (docCommentOwner instanceof PsiField) {
-            target = XmlPermDefMiner.processInnerClasses(docCommentOwner.getName());
+        } else if (member instanceof PsiField) {
+            target = XmlPermDefMiner.processInnerClasses(member.getName());
             targetKind = PermTargetKind.Field;
-        } else if (docCommentOwner instanceof PsiMethod) {
-            PsiMethod meth = (PsiMethod) docCommentOwner;
+        } else if (member instanceof PsiMethod) {
+            PsiMethod meth = (PsiMethod) member;
             StringBuilder sb = new StringBuilder();
             //noinspection ConstantConditions
-            sb.append(meth.getReturnType().getCanonicalText()).append(" ");
+            String returnTypeStr = meth.isConstructor() ? "" : meth.getReturnType().getCanonicalText() + " ";
+            sb.append(returnTypeStr);
             sb.append(meth.getName()).append("(");
             PsiParameter[] parameters = meth.getParameterList().getParameters();
             for (int i = 0; i < parameters.length; i++) {
@@ -173,30 +247,31 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
             }
             sb.append(")");
             target = XmlPermDefMiner.cleanupSignature(sb.toString());
+
+            //replacing constructor name with jimple equivalent
+            if (meth.isConstructor()) {
+                target = "void <init>" + target.substring(target.indexOf('('));
+            }
+
             targetKind = PermTargetKind.Method;
         } else {
-            throw new RuntimeException("Invalid PsiElement type: " + docCommentOwner);
+            throw new RuntimeException("Invalid PsiElement type: " + member);
         }
-        PermissionDef permDef = new PermissionDef();
-        permDef.setClassName(className);
-        permDef.setTarget(target);
-        permDef.setTargetKind(targetKind);
-        permDef.setPermissionRel(PermissionRel.AllOf);
-
-        List<Permission> permissions = permColl.stream().sorted().map(perm -> new Permission(perm, null))
-                .collect(Collectors.toList());
-        permDef.setPermissions(permissions);
-        permDef.setComment(buildComment(docCommentOwner.getDocComment(), permissions));
-        permDef.setConditional(true);
-        return permDef;
+        return Pair.create(target, targetKind);
     }
 
     private String buildComment(PsiDocComment docComment, List<Permission> permissions) {
+        if (docComment == null) {
+            return null;
+        }
         final int contextLen = 150;
         String docText = docComment.getText();
         List<Integer> indexes = buildOccurrenceIndexes(docText, permissions);
         List<TextRange> ranges = buildOccurrenceRanges(indexes, contextLen, docText.length());
         List<TextRange> fileRanges = expandToFileRangesFullLines(docComment, ranges);
+        if (fileRanges.isEmpty()) {
+            return null;
+        }
 
         //Concatenate text in the ranges
         String fileText = docComment.getContainingFile().getText();
