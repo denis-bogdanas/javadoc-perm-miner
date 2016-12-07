@@ -35,12 +35,14 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class JavadocPermMinerInspection extends GlobalInspectionTool {
 
     private static final Logger LOG = Logger.getInstance(JavadocPermMinerInspection.class);
     private static final File METADATA_XML = new File("d:/DroidPerm/droid-perm/config/perm-def-API-23.xml");
     private static final File XML_OUT = new File("d:/DroidPerm/javadoc-perm-miner/temp/javadoc-xml-out.xml");
+    private static final File MANUAL_XML_OUT = new File("d:/DroidPerm/javadoc-perm-miner/temp/manual-xml-out.xml");
 
     @Override
     public boolean isGraphNeeded() {
@@ -67,24 +69,31 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
             System.out.println("Total permission defs collected: " + collectedPermDef.size());
             System.out.println("New permission defs, after removing metadata and excluded defs: " + newPermDefs.size());
 
-            List<PermissionDef> customPermDefs = buildCustomPermDefs(globalContext.getProject());
+            List<PermissionDef> customPermDefs =
+                    buildCustomPermDefs(JPMData.classCustomPerm, globalContext.getProject());
             customPermDefs.removeAll(newPermDefs); //should not change results
             newPermDefs.addAll(customPermDefs);
             System.out.println("Final perm defs, after adding custom permissions: " + newPermDefs.size());
 
-            savePermissionDefs(newPermDefs);
+            savePermissionDefs(newPermDefs, XML_OUT);
+
+            List<PermissionDef> manualPermDefs = buildCustomPermDefs(JPMData.manualPerm, globalContext.getProject());
+            System.out.println("Manualperm defs: " + manualPermDefs.size());
+            savePermissionDefs(manualPermDefs, MANUAL_XML_OUT);
+
         } catch (JAXBException e) {
             LOG.error(e.getMessage(), e);
         }
     }
 
-    private List<PermissionDef> buildCustomPermDefs(Project project) {
+    private List<PermissionDef> buildCustomPermDefs(List<JPMData.CustomPermDef> customPermRawData,
+                                                    Project project) {
         JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
         GlobalSearchScope libScope = ProjectScope.getLibrariesScope(project);
 
         List<PermissionDef> result = new ArrayList<>();
-        for (String className : JPMData.classCustomPerm.keySet()) {
-            JPMData.CustomPermDef customPermDef = JPMData.classCustomPerm.get(className);
+        for (JPMData.CustomPermDef customPermDef : customPermRawData) {
+            String className = customPermDef.className;
             if (customPermDef.permList == null) {
                 continue;//class has to be ignored
             }
@@ -94,18 +103,24 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                 continue;
             }
 
-            if (customPermDef.methodNames != null) {
-                customPermDef.methodNames.stream()
-                        .flatMap(methName -> {
-                            PsiMethod[] methods = methName.equals("<init>")
-                                                  ? psiClass.getConstructors()
-                                                  : psiClass.findMethodsByName(methName, false);
-                            if (methods.length == 0) {
-                                LOG.error("Custom method not found: " + className + "." + methName + "()");
+            if (customPermDef.memberNames != null) {
+                customPermDef.memberNames.stream()
+                        .flatMap(memberName -> {
+                            PsiDocCommentOwner[] members = memberName.equals("<init>")
+                                                           ? psiClass.getConstructors()
+                                                           : psiClass.findMethodsByName(memberName, false);
+                            //if this is not a method then maybe it's a field
+                            if (members.length == 0) {
+                                PsiField field = psiClass.findFieldByName(memberName, false);
+                                if (field != null) {
+                                    members = new PsiDocCommentOwner[]{field};
+                                } else {
+                                    LOG.error("Custom member not found: " + className + "." + memberName);
+                                }
                             }
-                            return Arrays.stream(methods);
+                            return Arrays.stream(members);
                         })
-                        .map((PsiMethod meth) -> buildPermissionDef(meth, customPermDef.permList))
+                        .map((PsiDocCommentOwner member) -> buildPermissionDef(member, customPermDef.permList))
                         .forEach(result::add);
             }
             if (customPermDef.includeAllMethods) {
@@ -114,7 +129,14 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                         .forEach(result::add);
             }
             if (customPermDef.includeUriFields) {
-                Arrays.stream(psiClass.getFields()).filter(psiField -> !isHidden(psiField, getText(psiField)))
+                Stream<PsiClass> classes = customPermDef.includeInnerClassesForUri
+                                           ? Stream.concat(
+                        Stream.of(psiClass),
+                        PsiTreeUtil.findChildrenOfType(psiClass, PsiClass.class).stream())
+                                           : Stream.of(psiClass);
+
+                classes.flatMap(currentClass -> Stream.of(currentClass.getFields()))
+                        .filter(psiField -> !isHidden(psiField, getText(psiField)))
                         .filter(psiField -> psiField.getType().getCanonicalText().equals("android.net.Uri"))
                         .map(psiField -> buildPermissionDef(psiField, customPermDef.permList))
                         .forEach(result::add);
@@ -354,8 +376,8 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         }).collect(Collectors.toList());
     }
 
-    private void savePermissionDefs(List<PermissionDef> permissionDefs) throws JAXBException {
-        JaxbUtil.save(new PermissionDefList(permissionDefs), PermissionDefList.class, XML_OUT);
+    private void savePermissionDefs(List<PermissionDef> permissionDefs, File file) throws JAXBException {
+        JaxbUtil.save(new PermissionDefList(permissionDefs), PermissionDefList.class, file);
     }
 
     private static int occurrencesInType(PsiElement elem, String perm, Class<? extends PsiElement> psiClass) {

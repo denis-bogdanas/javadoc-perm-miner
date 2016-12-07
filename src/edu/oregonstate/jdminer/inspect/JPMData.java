@@ -1,5 +1,6 @@
 package edu.oregonstate.jdminer.inspect;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.oregonstate.droidperm.perm.miner.XmlPermDefMiner;
 import org.oregonstate.droidperm.perm.miner.jaxb_out.PermTargetKind;
@@ -70,110 +71,101 @@ public class JPMData {
      * Map from class names to CustomPermDef objects defining their permissions.
      */
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
-    public static final ImmutableMap<String, CustomPermDef> classCustomPerm =
-            ImmutableMap.<String, CustomPermDef>builder()
-                    .put("android.hardware.Camera",
-                            new CustomPermDef(Arrays.asList("android.permission.CAMERA"),
-                                    Arrays.asList("open")))
-                    .put("android.hardware.camera2.CameraDevice", new CustomPermDef(null, null))
-                    .put("android.media.audiofx.Visualizer",
-                            new CustomPermDef(Arrays.asList("android.permission.RECORD_AUDIO"),
-                                    Arrays.asList("<init>")))
-                    .put("android.net.rtp.AudioGroup",
-                            new CustomPermDef(Arrays.asList("android.permission.RECORD_AUDIO"),
-                                    Arrays.asList("<init>")))
-                    .put("android.net.sip.SipAudioCall", new CustomPermDef(null, null))
-                    .put("android.net.sip.SipManager",
-                            new CustomPermDef(Arrays.asList("android.permission.USE_SIP"),
-                                    Arrays.asList("createSipSession", "getSessionFor", "open", "makeAudioCall",
-                                            "takeAudioCall",
-                                            "register")))
+    public static final List<CustomPermDef> classCustomPerm = ImmutableList.copyOf(new CustomPermDef[]{
+            new CustomPermDef("android.hardware.Camera", Arrays.asList("android.permission.CAMERA"),
+                    Arrays.asList("open")), new CustomPermDef("android.hardware.camera2.CameraDevice", null, null),
+            new CustomPermDef("android.media.audiofx.Visualizer", Arrays.asList("android.permission.RECORD_AUDIO"),
+                    Arrays.asList("<init>")),
+            new CustomPermDef("android.net.rtp.AudioGroup", Arrays.asList("android.permission.RECORD_AUDIO"),
+                    Arrays.asList("<init>")), new CustomPermDef("android.net.sip.SipAudioCall", null, null),
+            new CustomPermDef("android.net.sip.SipManager", Arrays.asList("android.permission.USE_SIP"),
+                    Arrays.asList("createSipSession", "getSessionFor", "open", "makeAudioCall", "takeAudioCall",
+                            "register")),
+            /*removing inner classes that are hidden (@hide)*/
+            new CustomPermDef("android.provider.ContactsContract",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.AggregationExceptions",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.CommonDataKinds.Callable",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.CommonDataKinds.Contactables",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.CommonDataKinds.Email",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.CommonDataKinds.Phone",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.CommonDataKinds.StructuredPostal",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.Contacts",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.Data",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.DataUsageFeedback",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.DeletedContacts",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.Directory", null, null),
+            new CustomPermDef("android.provider.ContactsContract.DisplayPhoto",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.Groups",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.PhoneLookup",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.Profile",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.ProfileSyncState",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.ProviderStatus",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.RawContacts",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.RawContactsEntity",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.Settings",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.StatusUpdates",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.ContactsContract.SyncState",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"), true),
+            new CustomPermDef("android.provider.VoicemailContract", null, null),
+            new CustomPermDef("android.provider.VoicemailContract.Status",
+                    Arrays.asList("com.android.voicemail.permission.ADD_VOICEMAIL"), true),
+            new CustomPermDef("android.provider.VoicemailContract.Voicemails",
+                    Arrays.asList("com.android.voicemail.permission.ADD_VOICEMAIL"), true),
+            new CustomPermDef("android.speech.SpeechRecognizer", Arrays.asList("android.permission.RECORD_AUDIO"),
+                    Arrays.asList("createSpeechRecognizer")), new CustomPermDef("android.telephony.SubscriptionManager",
+            Arrays.asList("android.permission.READ_PHONE_STATE"), null, false, true),
+            new CustomPermDef("android.telephony.SubscriptionManager.OnSubscriptionsChangedListener", null, null)
+    });
 
-                    //removing classes inner that are hidden (@hide)
-                    .put("android.provider.ContactsContract", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.AggregationExceptions", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.CommonDataKinds.Callable", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.CommonDataKinds.Contactables", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.CommonDataKinds.Email", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.CommonDataKinds.Phone", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.CommonDataKinds.StructuredPostal", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.Contacts", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.Data", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.DataUsageFeedback", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.DeletedContacts", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.Directory", new CustomPermDef(null, null))
-                    .put("android.provider.ContactsContract.DisplayPhoto", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.Groups", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.PhoneLookup", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.Profile", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.ProfileSyncState", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.ProviderStatus", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.RawContacts", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.RawContactsEntity", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.Settings", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.StatusUpdates", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-                    .put("android.provider.ContactsContract.SyncState", new CustomPermDef(
-                            Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
-                            true))
-
-                    .put("android.provider.VoicemailContract", new CustomPermDef(null, null))
-                    .put("android.provider.VoicemailContract.Status",
-                            new CustomPermDef(Arrays.asList("com.android.voicemail.permission.ADD_VOICEMAIL"), true))
-                    .put("android.provider.VoicemailContract.Voicemails",
-                            new CustomPermDef(Arrays.asList("com.android.voicemail.permission.ADD_VOICEMAIL"), true))
-                    .put("android.speech.SpeechRecognizer",
-                            new CustomPermDef(Arrays.asList("android.permission.RECORD_AUDIO"),
-                                    Arrays.asList("createSpeechRecognizer")))
-                    .put("android.telephony.SubscriptionManager",
-                            new CustomPermDef(Arrays.asList("android.permission.READ_PHONE_STATE"), null, false, true))
-                    .put("android.telephony.SubscriptionManager.OnSubscriptionsChangedListener",
-                            new CustomPermDef(null, null))
-                    .build();
+    /**
+     * Manually defined raw data for permissions, based on inspecting apps with unused permissions after javadoc perm
+     * were in place.
+     */
+    @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
+    public static final List<CustomPermDef> manualPerm = ImmutableList.copyOf(new CustomPermDef[]{
+            /*other actions in WifiManager might need Location or other permissions. Hard to know generally.*/
+            new CustomPermDef("android.net.wifi.WifiManager",
+                    Arrays.asList("android.permission.ACCESS_COARSE_LOCATION"),
+                    Arrays.asList("SCAN_RESULTS_AVAILABLE_ACTION")),
+            new CustomPermDef("android.telephony.TelephonyManager",
+                    Arrays.asList("android.permission.ACCESS_COARSE_LOCATION"),
+                    Arrays.asList("getNeighboringCellInfo")),
+            new CustomPermDef("android.telephony.TelephonyManager",
+                    Arrays.asList("android.permission.READ_PHONE_STATE"),
+                    Arrays.asList("listen")),
+            new CustomPermDef("android.provider.Telephony",
+                    Arrays.asList("android.permission.READ_SMS"),
+                    null, true, false, true),
+            //some actions below actually require BROADCAST_SMS PERMISSION
+            //Class contains other actions as well.
+            new CustomPermDef("android.provider.Telephony.Sms.Intents",
+                    Arrays.asList("android.permission.READ_SMS"),
+                    Arrays.asList("SMS_RECEIVED_ACTION"))
+    });
 
     public static List<PermissionDef> getClassPermDefsCoveredByCustomDefs() {
-        return classCustomPerm.keySet().stream().map(className ->
+        return classCustomPerm.stream().map(rawPermDef -> rawPermDef.className).distinct().map(className ->
                 new PermissionDef(XmlPermDefMiner.processInnerClasses(className), null, PermTargetKind.Class, null))
                 .collect(Collectors.toList());
     }
@@ -183,31 +175,49 @@ public class JPMData {
      * permissions mentioned individually for members.
      */
     public static final class CustomPermDef {
+        public final String className;
         public final List<String> permList;
-        public final List<String> methodNames;
+        public final List<String> memberNames;
         public final boolean includeUriFields;
         public final boolean includeAllMethods;
+        public final boolean includeInnerClassesForUri;
 
-        public CustomPermDef(List<String> permList, List<String> methodNames) {
+        public CustomPermDef(String className, List<String> permList, List<String> memberNames) {
+            this.className = className;
             this.permList = permList;
-            this.methodNames = methodNames;
+            this.memberNames = memberNames;
             includeUriFields = false;
             includeAllMethods = false;
+            includeInnerClassesForUri = false;
         }
 
-        public CustomPermDef(List<String> permList, boolean includeUriFields) {
+        public CustomPermDef(String className, List<String> permList, boolean includeUriFields) {
+            this.className = className;
             this.permList = permList;
-            methodNames = null;
+            memberNames = null;
             this.includeUriFields = includeUriFields;
             includeAllMethods = false;
+            includeInnerClassesForUri = false;
         }
 
-        public CustomPermDef(List<String> permList, List<String> methodNames, boolean includeUriFields,
-                             boolean includeAllMethods) {
+        public CustomPermDef(String className, List<String> permList, List<String> memberNames,
+                             boolean includeUriFields, boolean includeAllMethods) {
+            this.className = className;
             this.permList = permList;
-            this.methodNames = methodNames;
+            this.memberNames = memberNames;
             this.includeUriFields = includeUriFields;
             this.includeAllMethods = includeAllMethods;
+            includeInnerClassesForUri = false;
+        }
+
+        public CustomPermDef(String className, List<String> permList, List<String> memberNames,
+                             boolean includeUriFields, boolean includeAllMethods, boolean includeInnerClassesForUri) {
+            this.className = className;
+            this.permList = permList;
+            this.memberNames = memberNames;
+            this.includeUriFields = includeUriFields;
+            this.includeAllMethods = includeAllMethods;
+            this.includeInnerClassesForUri = includeInnerClassesForUri;
         }
     }
 }
