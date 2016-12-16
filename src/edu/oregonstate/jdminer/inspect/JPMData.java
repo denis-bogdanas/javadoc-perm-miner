@@ -164,6 +164,26 @@ public class JPMData {
                     Arrays.asList("SMS_RECEIVED_ACTION"))
     });
 
+    /**
+     * Raw input to generate parametric permission defs.
+     * <p>
+     * Perm lists here won't be used, but they have to be non-null.
+     */
+    @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
+    public static final List<CustomPermDef> parametricPerm = ImmutableList.copyOf(new CustomPermDef[]{
+            /*other actions in WifiManager might need Location or other permissions. Hard to know generally.*/
+            new CustomPermDef("android.content.ContentResolver", Arrays.asList("foo"),
+                    Arrays.asList("query", "insert", "bulkInsert", "delete")),
+            new CustomPermDef("android.content.ContentProvider", Arrays.asList("foo"),
+                    Arrays.asList("query", "insert", "bulkInsert", "delete")),
+            new CustomPermDef("android.content.CursorLoader", Arrays.asList("foo"),
+                    Arrays.asList("<init>", "setUri")),
+            new CustomPermDef("android.support.v4.content.CursorLoader", Arrays.asList("foo"),
+                    Arrays.asList("<init>", "setUri")),
+            new CustomPermDef("android.database.Cursor", Arrays.asList("foo"),
+                    Arrays.asList("setNotificationUri")),
+            });
+
     public static List<PermissionDef> getClassPermDefsCoveredByCustomDefs() {
         return classCustomPerm.stream().map(rawPermDef -> rawPermDef.className).distinct().map(className ->
                 new PermissionDef(XmlPermDefMiner.processInnerClasses(className), null, PermTargetKind.Class, null))
