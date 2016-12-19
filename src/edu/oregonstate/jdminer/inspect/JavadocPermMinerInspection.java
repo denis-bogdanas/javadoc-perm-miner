@@ -57,9 +57,11 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                               @NotNull GlobalInspectionContext globalContext,
                               @NotNull ProblemDescriptionsProcessor problemDescriptionsProcessor) {
         try {
-            List<PermissionDef> metadadaPermDefs = XmlPermDefMiner.load(METADATA_XML).getPermissionDefs();
+            List<PermissionDef> metadadaPermDefs =
+                    JaxbUtil.load(PermissionDefList.class, METADATA_XML).getPermissionDefs();
             List<PermissionDef> excludedPermDefs =
-                    XmlPermDefMiner.load(getClass().getResource("ExcludedPermDef.xml")).getPermissionDefs();
+                    JaxbUtil.load(PermissionDefList.class, getClass().getResource("ExcludedPermDef.xml"))
+                            .getPermissionDefs();
             Multimap<String, PsiDocCommentOwner> permToCommentOwnersMap =
                     buildDocCommentOwners(globalContext.getProject());
             List<PermissionDef> collectedPermDef = buildPermissionDefs(permToCommentOwnersMap);
