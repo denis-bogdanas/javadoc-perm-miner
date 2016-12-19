@@ -31,6 +31,7 @@ import org.oregonstate.droidperm.util.SortUtil;
 
 import javax.xml.bind.JAXBException;
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
@@ -93,7 +94,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
             System.out.println("Parametric sens defs: " + parametricSensDefs.size());
             JaxbUtil.save(new PermissionDefList(Collections.emptyList(), Collections.emptyList(), parametricSensDefs),
                     PermissionDefList.class, PARAMETRIC_SENS_OUT);
-        } catch (JAXBException e) {
+        } catch (Exception e) {
             LOG.error(e.getMessage(), e);
         }
     }
@@ -400,7 +401,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         }).collect(Collectors.toList());
     }
 
-    private void savePermissionDefs(List<PermissionDef> permissionDefs, File file) throws JAXBException {
+    private void savePermissionDefs(List<PermissionDef> permissionDefs, File file) throws JAXBException, IOException {
         JaxbUtil.save(new PermissionDefList(permissionDefs), PermissionDefList.class, file);
     }
 
