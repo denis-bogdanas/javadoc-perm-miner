@@ -161,8 +161,12 @@ public class JPMData {
             //Class contains other actions as well.
             new CustomPermDef("android.provider.Telephony.Sms.Intents",
                     Arrays.asList("android.permission.READ_SMS"),
-                    Arrays.asList("SMS_RECEIVED_ACTION"))
-    });
+                    Arrays.asList("SMS_RECEIVED_ACTION")),
+            //discovered by running DroidPerm init URI implementation and inspecting crashed apps.
+            new CustomPermDef("android.provider.ContactsContract.Contacts",
+                    Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
+                    Arrays.asList("lookupContact")),
+            });
 
     /**
      * Raw input to generate parametric permission defs.
