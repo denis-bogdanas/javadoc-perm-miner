@@ -1,9 +1,6 @@
 package edu.oregonstate.jdminer.inspect;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
+import com.google.common.collect.*;
 import com.intellij.analysis.AnalysisScope;
 import com.intellij.codeInspection.GlobalInspectionContext;
 import com.intellij.codeInspection.GlobalInspectionTool;
@@ -136,6 +133,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
                         })
                         .filter(member -> !isHidden(member, getText(member)))
                         .map((PsiDocCommentOwner member) -> permDefBuilder.apply(member, customPermDef.permList))
+                        .filter(Objects::nonNull)
                         .forEach(result::add);
             }
             if (customPermDef.includeAllMethods) {
@@ -191,7 +189,7 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         //noinspection unchecked
         Arrays.stream(filesWithPerm).flatMap(file -> PsiTreeUtil.getChildrenOfAnyType(file, PsiClass.class).stream())
                 .forEach(psiClass -> {
-                    boolean excluded = JPMUtil.startsWitAny(psiClass.getQualifiedName(), JPMData.classExclusionList);
+                    boolean excluded = JPMUtil.startsWithAny(psiClass.getQualifiedName(), JPMData.classExclusionList);
                     String excludedStr = excluded ? ", excluded" : "";
                     System.out.println(psiClass.getQualifiedName()
                             + ", com:" + occurrencesInType(psiClass, perm, PsiComment.class)
@@ -258,6 +256,9 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         return permDef;
     }
 
+    private static final Set<String> SENSITIVE_PARAM_TYPES =
+            Sets.newHashSet("java.lang.String", "android.net.Uri", "int");
+
     private ParametricSensDef buildParametricSensDef(PsiDocCommentOwner docCommentOwner, @SuppressWarnings("unused")
             Collection<String> permColl) {
         PsiClass classOrSelf =
@@ -265,7 +266,18 @@ public class JavadocPermMinerInspection extends GlobalInspectionTool {
         assert classOrSelf != null;
         String className = XmlPermDefMiner.processInnerClasses(classOrSelf.getQualifiedName());
         Pair<String, PermTargetKind> targetAndKind = getTargetAndKind(docCommentOwner);
-        return new ParametricSensDef(className, targetAndKind.first);
+
+        //if it's a method without any parameter of type representing a sensitive parameter, it's invalid.
+        boolean valid;
+        if (docCommentOwner instanceof PsiMethod) {
+            PsiMethod psiMethod = (PsiMethod) docCommentOwner;
+            valid = Stream.of(psiMethod.getParameterList().getParameters())
+                    .anyMatch(param -> SENSITIVE_PARAM_TYPES.contains(param.getType().getCanonicalText()));
+        } else {
+            valid = true;
+        }
+
+        return valid ? new ParametricSensDef(className, targetAndKind.first) : null;
     }
 
     @NotNull

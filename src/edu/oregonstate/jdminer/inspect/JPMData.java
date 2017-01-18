@@ -146,26 +146,32 @@ public class JPMData {
     public static final List<CustomPermDef> manualPerm = ImmutableList.copyOf(new CustomPermDef[]{
             /*other actions in WifiManager might need Location or other permissions. Hard to know generally.*/
             new CustomPermDef("android.net.wifi.WifiManager",
-                    Arrays.asList("android.permission.ACCESS_COARSE_LOCATION"),
+                    Arrays.asList("android.permission.ACCESS_COARSE_LOCATION",
+                            "android.permission.ACCESS_FINE_LOCATION"),
                     Arrays.asList("SCAN_RESULTS_AVAILABLE_ACTION")),
             new CustomPermDef("android.telephony.TelephonyManager",
                     Arrays.asList("android.permission.ACCESS_COARSE_LOCATION"),
                     Arrays.asList("getNeighboringCellInfo")),
-            new CustomPermDef("android.telephony.TelephonyManager",
-                    Arrays.asList("android.permission.READ_PHONE_STATE"),
-                    Arrays.asList("listen")),
             new CustomPermDef("android.provider.Telephony",
                     Arrays.asList("android.permission.READ_SMS"),
                     null, true, false, true),
             //some actions below actually require BROADCAST_SMS PERMISSION
             //Class contains other actions as well.
+            //WARNING: permission specification for this field is not in javadoc comment,
+            // but appears when pressing Ctrl+Q
             new CustomPermDef("android.provider.Telephony.Sms.Intents",
-                    Arrays.asList("android.permission.READ_SMS"),
+                    Arrays.asList("android.permission.RECEIVE_SMS"),
                     Arrays.asList("SMS_RECEIVED_ACTION")),
             //discovered by running DroidPerm init URI implementation and inspecting crashed apps.
             new CustomPermDef("android.provider.ContactsContract.Contacts",
                     Arrays.asList("android.permission.READ_CONTACTS", "android.permission.WRITE_CONTACTS"),
                     Arrays.asList("lookupContact")),
+            new CustomPermDef("android.media.MediaRecorder",
+                    Arrays.asList("android.permission.RECORD_AUDIO"),
+                    Arrays.asList("setAudioSource")),
+            new CustomPermDef("android.media.AudioRecord",
+                    Arrays.asList("android.permission.RECORD_AUDIO"),
+                    Arrays.asList("<init>")),
             });
 
     /**
@@ -186,6 +192,8 @@ public class JPMData {
                     Arrays.asList("<init>", "setUri")),
             new CustomPermDef("android.database.Cursor", Arrays.asList("foo"),
                     Arrays.asList("setNotificationUri")),
+            new CustomPermDef("android.telephony.TelephonyManager", Arrays.asList("foo"),
+                    Arrays.asList("listen")),
             });
 
     public static List<PermissionDef> getClassPermDefsCoveredByCustomDefs() {

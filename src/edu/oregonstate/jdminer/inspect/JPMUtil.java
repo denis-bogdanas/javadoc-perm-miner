@@ -10,7 +10,7 @@ public class JPMUtil {
     /**
      * @return true if str starts with any prefix in prefixes, false otherwise.
      */
-    public static boolean startsWitAny(String str, Collection<String> prefixes) {
+    public static boolean startsWithAny(String str, Collection<String> prefixes) {
         return prefixes.stream().anyMatch(str::startsWith);
     }
 }
