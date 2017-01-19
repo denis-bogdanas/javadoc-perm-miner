@@ -172,6 +172,9 @@ public class JPMData {
             new CustomPermDef("android.media.AudioRecord",
                     Arrays.asList("android.permission.RECORD_AUDIO"),
                     Arrays.asList("<init>")),
+            new CustomPermDef("android.telephony.PhoneStateListener",
+                    Arrays.asList("android.permission.READ_PHONE_STATE"),
+                    Arrays.asList("LISTEN_SIGNAL_STRENGTHS")),
             });
 
     /**
