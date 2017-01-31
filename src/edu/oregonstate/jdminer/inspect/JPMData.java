@@ -197,6 +197,8 @@ public class JPMData {
                     Arrays.asList("setNotificationUri")),
             new CustomPermDef("android.telephony.TelephonyManager", Arrays.asList("foo"),
                     Arrays.asList("listen")),
+            new CustomPermDef("android.content.ContentProviderOperation", Arrays.asList("foo"),
+                    Arrays.asList("newAssertQuery", "newInsert", "newUpdate", "newDelete")),
             });
 
     public static List<PermissionDef> getClassPermDefsCoveredByCustomDefs() {
