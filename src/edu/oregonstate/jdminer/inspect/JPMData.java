@@ -186,9 +186,9 @@ public class JPMData {
     public static final List<CustomPermDef> parametricPerm = ImmutableList.copyOf(new CustomPermDef[]{
             /*other actions in WifiManager might need Location or other permissions. Hard to know generally.*/
             new CustomPermDef("android.content.ContentResolver", Arrays.asList("foo"),
-                    Arrays.asList("query", "insert", "bulkInsert", "delete")),
+                    Arrays.asList("query", "insert", "bulkInsert", "update", "delete")),
             new CustomPermDef("android.content.ContentProvider", Arrays.asList("foo"),
-                    Arrays.asList("query", "insert", "bulkInsert", "delete")),
+                    Arrays.asList("query", "insert", "bulkInsert", "update", "delete")),
             new CustomPermDef("android.content.CursorLoader", Arrays.asList("foo"),
                     Arrays.asList("<init>", "setUri")),
             new CustomPermDef("android.support.v4.content.CursorLoader", Arrays.asList("foo"),
