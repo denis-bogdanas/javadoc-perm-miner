@@ -73,7 +73,8 @@ public class JPMData {
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     public static final List<CustomPermDef> classCustomPerm = ImmutableList.copyOf(new CustomPermDef[]{
             new CustomPermDef("android.hardware.Camera", Arrays.asList("android.permission.CAMERA"),
-                    Arrays.asList("open")), new CustomPermDef("android.hardware.camera2.CameraDevice", null, null),
+                    Arrays.asList("open")),
+            new CustomPermDef("android.hardware.camera2.CameraDevice", null, null),
             new CustomPermDef("android.media.audiofx.Visualizer", Arrays.asList("android.permission.RECORD_AUDIO"),
                     Arrays.asList("<init>")),
             new CustomPermDef("android.net.rtp.AudioGroup", Arrays.asList("android.permission.RECORD_AUDIO"),
