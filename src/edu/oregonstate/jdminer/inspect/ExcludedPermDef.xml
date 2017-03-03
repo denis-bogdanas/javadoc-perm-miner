@@ -8,6 +8,7 @@
   </permissionDef>
 
   <!--Looks like permissions would be requested from other side regardless of whether this method is called or not.-->
+  <!--todo this is an error. This method can be the only sensitive for location, example app: slimfacebook -->
   <permissionDef className="android.webkit.WebSettings" conditional="true" permissionRel="AllOf" target="void setGeolocationEnabled(boolean)" targetKind="Method">
     <permission name="android.permission.ACCESS_COARSE_LOCATION"/>
     <permission name="android.permission.ACCESS_FINE_LOCATION"/>
